@@ -73,7 +73,7 @@ export const RegisterPage = () => {
     // Simulate API call
     setTimeout(() => {
       setIsSubmitting(false);
-      navigate('/');
+      navigate('/dashboard');
     }, 1000);
   };
 

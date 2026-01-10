@@ -6,7 +6,7 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: Home },
+    { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/vendors', label: 'Vendors', icon: FileText },
     { path: '/alerts', label: 'Alerts', icon: AlertCircle },
     { path: '/inspections', label: 'Inspections', icon: BarChart3 },
