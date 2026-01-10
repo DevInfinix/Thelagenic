@@ -35,8 +35,8 @@ export const Sidebar: React.FC = () => {
               key={item.path}
               to={item.path}
               className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-800'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-300 hover:bg-slate-800'
                 }`}
               title={item.label}
             >
