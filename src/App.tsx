@@ -24,11 +24,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/vendors" element={<VendorList />} />
           <Route path="/vendor/:vendorId" element={<VendorDetail />} />
           <Route path="/alerts" element={<AlertsPage />} />
