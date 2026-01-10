@@ -1,12 +1,15 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: ["./App.{js,jsx,ts,tsx}", "./screens/**/*.{js,jsx,ts,tsx}"],
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        mint: '#00C896', // Adding your custom color here makes it easier to use
-      }
+        danger: "#dc2626",
+        warning: "#f59e0b",
+        success: "#10b981",
+        info: "#3b82f6",
+      },
     },
   },
   plugins: [],
-}
+};
