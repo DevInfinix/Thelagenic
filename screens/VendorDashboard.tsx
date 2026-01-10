@@ -31,13 +31,13 @@ interface VendorData {
   name: string;
   description: string;
   image: string;
-  rating: number;
+  rating: number; // This comes from Firebase
   hygieneGrade: string;
   lat: number;
   lng: number;
   menu: Array<{ name: string; price: string; image: string; }>;
-  fssaiUrl?: string; // New field for FSSAI Certificate
-  dailyVideoUrl?: string; // New field for Today's Video
+  fssaiUrl?: string; // FSSAI Certificate
+  dailyVideoUrl?: string; // Today's Video
 }
 
 // --- SPEEDOMETER COMPONENT ---
@@ -104,7 +104,10 @@ export default function VendorDashboard({ route, navigation }: any) {
   const fetchVendor = async () => {
     try {
       const snap = await getDoc(doc(db, 'vendors', vendorId));
-      if (snap.exists()) setVendor(snap.data() as VendorData);
+      if (snap.exists()) {
+        const data = snap.data() as VendorData;
+        setVendor(data);
+      }
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
   };
@@ -266,6 +269,7 @@ export default function VendorDashboard({ route, navigation }: any) {
             <View style={styles.statsRow}>
               <View style={styles.statCol}>
                 <Text style={styles.statLabel}>TRUST RATING</Text>
+                {/* Dynamically uses vendor.rating from Firestore */}
                 <ModernSpeedometer rating={vendor.rating} />
               </View>
               <View style={styles.locationCol}>
@@ -275,13 +279,13 @@ export default function VendorDashboard({ route, navigation }: any) {
             </View>
           </View>
 
-          {/* --- SECTION: PENDING TASKS --- */}
+          {/* --- SECTION: GENERAL TASKS (FSSAI) --- */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Daily Tasks</Text>
-            <Text style={styles.sectionSub}>Complete these to verify your stall today.</Text>
-            
-            {/* Task 1: FSSAI */}
-            <View style={[styles.taskCard, vendor.fssaiUrl && styles.taskComplete]}>
+            <Text style={styles.sectionTitle}>Verification Tasks</Text>
+            <Text style={styles.sectionSub}>One-time setup for verification badge.</Text>
+
+             {/* Task: FSSAI */}
+             <View style={[styles.taskCard, vendor.fssaiUrl && styles.taskComplete]}>
               <View style={styles.taskIcon}>
                 <Ionicons name={vendor.fssaiUrl ? "checkmark-done" : "document-text"} size={24} color={vendor.fssaiUrl ? "#0B0F19" : "#00E096"} />
               </View>
@@ -295,8 +299,14 @@ export default function VendorDashboard({ route, navigation }: any) {
                 </TouchableOpacity>
               )}
             </View>
+          </View>
 
-            {/* Task 2: Daily Video */}
+          {/* --- SECTION: DAILY TASKS (Video) --- */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Daily Tasks</Text>
+            <Text style={styles.sectionSub}>Complete these to maintain your daily score.</Text>
+            
+            {/* Task: Daily Video */}
             <View style={[styles.taskCard, vendor.dailyVideoUrl && styles.taskComplete]}>
               <View style={styles.taskIcon}>
                 <Ionicons name={vendor.dailyVideoUrl ? "checkmark-done" : "videocam"} size={24} color={vendor.dailyVideoUrl ? "#0B0F19" : "#00E096"} />

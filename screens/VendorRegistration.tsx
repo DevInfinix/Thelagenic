@@ -15,11 +15,12 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker'; 
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy'; 
-import { db } from '../config/firebase'; 
+// Import the initialized auth instance directly from the config file
+import { db, auth } from '../config/firebase'; 
 import { Ionicons } from '@expo/vector-icons'; 
 
 // CONFIGURATION
@@ -41,7 +42,7 @@ const INITIAL_REGION = {
 
 export default function VendorRegistration() {
   const navigation = useNavigation();
-  const auth = getAuth();
+  // Removed local getAuth() call, using imported auth instance
 
   // Auth State
   const [initializing, setInitializing] = useState(true);
@@ -54,6 +55,8 @@ export default function VendorRegistration() {
   const [stallName, setStallName] = useState('');
   const [description, setDescription] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null); 
+  const [aadhaarImage, setAadhaarImage] = useState<string | null>(null); // New Aadhaar State
+  
   const [coordinates, setCoordinates] = useState({
     latitude: 19.0760,
     longitude: 72.8777,
@@ -64,6 +67,7 @@ export default function VendorRegistration() {
 
   // --- 1. AUTH CHECK ON MOUNT ---
   useEffect(() => {
+    // Use the imported 'auth' instance here
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // User is logged in, check if they have a vendor profile
@@ -75,7 +79,6 @@ export default function VendorRegistration() {
             // Vendor found, redirect to dashboard
             const vendorId = snapshot.docs[0].id;
             
-            // Fix: Use CommonActions.reset or cast routes to any to avoid strict typing issues if types aren't fully defined
             navigation.dispatch(
               CommonActions.reset({
                 index: 0,
@@ -94,7 +97,7 @@ export default function VendorRegistration() {
   }, []);
 
   // --- IMAGE LOGIC ---
-  const pickImage = async (type: 'banner' | 'menu', index?: number) => {
+  const pickImage = async (type: 'banner' | 'menu' | 'aadhaar', index?: number) => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
       Alert.alert("Permission Required", "Access to photos is needed.");
@@ -104,7 +107,7 @@ export default function VendorRegistration() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], 
       allowsEditing: true,
-      aspect: type === 'banner' ? [16, 9] : [1, 1],
+      aspect: type === 'banner' ? [16, 9] : type === 'aadhaar' ? [4, 3] : [1, 1],
       quality: 0.5,
     });
 
@@ -112,6 +115,8 @@ export default function VendorRegistration() {
       const uri = result.assets[0].uri;
       if (type === 'banner') {
         setBannerImage(uri);
+      } else if (type === 'aadhaar') {
+        setAadhaarImage(uri);
       } else if (type === 'menu' && index !== undefined) {
         const updatedMenu = [...menuItems];
         updatedMenu[index].image = uri;
@@ -152,6 +157,7 @@ export default function VendorRegistration() {
     }
     try {
       setLoading(true);
+      // Use imported 'auth' instance
       await signInWithEmailAndPassword(auth, email, password);
       // The useEffect listener will handle the redirect if login succeeds
     } catch (error: any) {
@@ -167,8 +173,8 @@ export default function VendorRegistration() {
       Alert.alert('Missing Auth Details', 'Please enter email and password.');
       return;
     }
-    if (!stallName || !description || !bannerImage) {
-      Alert.alert('Missing Fields', 'Please fill in name, description, and upload a banner.');
+    if (!stallName || !description || !bannerImage || !aadhaarImage) {
+      Alert.alert('Missing Fields', 'Please fill in name, description, banner, and Aadhaar card.');
       return;
     }
     const validMenu = menuItems.filter(item => item.name && item.price);
@@ -180,18 +186,26 @@ export default function VendorRegistration() {
     try {
       setLoading(true);
 
-      // 2. Create Auth User
+      // 2. Create Auth User - Use imported 'auth' instance
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       // 3. Upload Assets
       const cleanStallName = stallName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
       
+      // Upload Banner
       let bannerUrl = bannerImage;
       if (bannerImage && !bannerImage.startsWith('http')) {
-         bannerUrl = await uploadToCloudinary(bannerImage, `${cleanStallName}_banner`);
+         bannerUrl = await uploadToCloudinary(bannerImage, `${cleanStallName}_banner_${Date.now()}`);
       }
 
+      // Upload Aadhaar
+      let aadhaarUrl = aadhaarImage;
+      if (aadhaarImage && !aadhaarImage.startsWith('http')) {
+         aadhaarUrl = await uploadToCloudinary(aadhaarImage, `${cleanStallName}_aadhaar_${Date.now()}`);
+      }
+
+      // Upload Menu
       const menuWithCloudUrls = await Promise.all(
         validMenu.map(async (item) => {
           let imageUrl = item.image;
@@ -208,6 +222,7 @@ export default function VendorRegistration() {
         name: stallName,
         description: description,
         image: bannerUrl,
+        aadhaarUrl: aadhaarUrl, // New Field
         rating: 5.0,
         hygieneGrade: "A",
         lat: coordinates.latitude,
@@ -347,6 +362,22 @@ export default function VendorRegistration() {
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* NEW AADHAAR UPLOAD */}
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.inputLabel}>AADHAAR CARD</Text>
+                <TouchableOpacity onPress={() => pickImage('aadhaar')} activeOpacity={0.8}>
+                  {aadhaarImage ? (
+                    <Image source={{ uri: aadhaarImage }} style={styles.bannerPreview} />
+                  ) : (
+                    <View style={styles.uploadPlaceholder}>
+                      <Ionicons name="card-outline" size={32} color="#00E096" />
+                      <Text style={styles.uploadText}>Upload Aadhaar Card</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
             </View>
 
             {/* 2. LOCATION */}
