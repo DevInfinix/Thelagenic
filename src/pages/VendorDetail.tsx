@@ -14,8 +14,8 @@ export const VendorDetail: React.FC = () => {
 
   if (!vendor) {
     return (
-      <div className="ml-80 min-h-screen bg-gray-50 p-8">
-        <div className="text-center py-16">
+      <div className="min-h-screen bg-green-50 p-8">
+        <div className="max-w-7xl mx-auto text-center py-16">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Vendor not found</h2>
           <Link to="/vendors" className="text-blue-600 hover:text-blue-700 font-semibold">Back to Vendors</Link>
         </div>
@@ -28,14 +28,16 @@ export const VendorDetail: React.FC = () => {
   const statusClasses = { 'pass': 'text-green-700 bg-green-100', 'fail': 'text-red-700 bg-red-100', 'na': 'text-gray-700 bg-gray-100' };
 
   return (
-    <div className="ml-80 min-h-screen bg-gray-50">
-      <button className="m-8 mb-4 flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold" onClick={() => navigate(-1)}>
-        <ArrowLeft size={18} />
-        Back
-      </button>
+    <div className="min-h-screen bg-green-50">
+      <div className="max-w-7xl mx-auto">
+        <button className="m-8 mb-4 flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold" onClick={() => navigate(-1)}>
+          <ArrowLeft size={18} />
+          Back
+        </button>
+      </div>
 
       <header className="bg-white border-b border-gray-200 p-10 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">{vendor.name}</h1>
             <div className="flex items-center gap-4 mt-3">
@@ -50,7 +52,7 @@ export const VendorDetail: React.FC = () => {
         </div>
       </header>
 
-      <div className="p-8 space-y-8">
+      <div className="p-8 space-y-8 max-w-7xl mx-auto">
         {/* Contact & Registration Info */}
         <section className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact & Registration</h2>

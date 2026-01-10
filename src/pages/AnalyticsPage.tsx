@@ -40,9 +40,9 @@ export const AnalyticsPage: React.FC = () => {
   const handleExportPDF = () => alert('Exporting report to PDF...');
 
   return (
-    <div className="ml-80 min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-green-50">
       <header className="bg-white border-b border-gray-200 p-10 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">Analytics & Reports</h1>
             <p className="text-lg text-gray-600 mt-2">Compliance trends and vendor performance metrics</p>
@@ -51,7 +51,7 @@ export const AnalyticsPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="p-8 space-y-8">
+      <div className="p-8 space-y-8 max-w-7xl mx-auto">
         <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm flex items-center gap-4">
           <label className="font-semibold text-gray-700">Time Period:</label>
           <div className="flex gap-2">

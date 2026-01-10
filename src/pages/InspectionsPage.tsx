@@ -16,9 +16,9 @@ export const InspectionsPage: React.FC = () => {
   const statusColors = { pass: 'bg-green-100 text-green-800', fail: 'bg-red-100 text-red-800', na: 'bg-gray-100 text-gray-800' };
 
   return (
-    <div className="ml-80 min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-green-50">
       <header className="bg-white border-b border-gray-200 p-10 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">Inspection Records</h1>
             <p className="text-lg text-gray-600 mt-2">Complete inspection history and outcomes</p>
@@ -34,7 +34,7 @@ export const InspectionsPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="p-8 space-y-8">
+      <div className="p-8 space-y-8 max-w-7xl mx-auto">
         <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Outcome</label>
           <select value={filterOutcome} onChange={(e) => setFilterOutcome(e.target.value as any)} className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
@@ -96,6 +96,4 @@ export const InspectionsPage: React.FC = () => {
         </div>
       </div>
     </div>
-  );
-};
-
+)}

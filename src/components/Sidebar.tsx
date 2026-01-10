@@ -1,10 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, FileText, AlertCircle, Home, Menu } from 'lucide-react';
+import { BarChart3, FileText, AlertCircle, Home } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const location = useLocation();
-  const [isOpen, setIsOpen] = React.useState(true);
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
@@ -15,18 +14,12 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className={`fixed h-screen w-${isOpen ? '80' : '32'} bg-slate-900 text-white transition-all duration-300 flex flex-col border-r border-slate-700`}>
-      <div className="p-4 border-b border-slate-700 flex items-center gap-3">
-        <button
-          className="p-2 hover:bg-slate-800 rounded-md transition-colors"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <Menu size={20} />
-        </button>
-        {isOpen && <h1 className="text-lg font-bold whitespace-nowrap">FSSAI Officer</h1>}
+    <aside className="fixed h-screen w-72 bg-gradient-to-b from-emerald-700 via-emerald-600 to-teal-700 text-white flex flex-col border-r border-emerald-800 shadow-lg">
+      <div className="p-6 border-b border-emerald-800 flex items-center gap-3">
+        <h1 className="text-2xl font-bold whitespace-nowrap">FSSAI Officer</h1>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
         {navItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -34,23 +27,22 @@ export const Sidebar: React.FC = () => {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${isActive
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-300 hover:bg-slate-800'
+              className={`flex items-center gap-4 px-5 py-4 rounded-lg transition-all ${isActive
+                ? 'bg-gradient-to-r from-lime-300 to-green-300 text-emerald-900 font-semibold shadow-lg'
+                : 'text-emerald-100 hover:bg-emerald-700 hover:text-white'
                 }`}
-              title={item.label}
             >
-              <Icon size={20} className="flex-shrink-0" />
-              {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+              <Icon size={24} className="flex-shrink-0" />
+              <span className="text-base font-medium">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className={`border-t border-slate-700 p-4 ${isOpen ? 'block' : 'hidden'}`}>
-        <div className="space-y-2">
-          <div className="inline-block bg-blue-600 px-3 py-1 rounded-full text-xs font-semibold">Officer</div>
-          <p className="text-xs text-slate-400 mt-2">Jurisdiction: 3,250 vendors</p>
+      <div className="border-t border-emerald-800 p-6">
+        <div className="space-y-3">
+          <div className="inline-block bg-gradient-to-r from-lime-300 to-green-300 text-emerald-900 px-4 py-2 rounded-full text-sm font-bold">Officer</div>
+          <p className="text-sm text-emerald-200 mt-3">Jurisdiction: 3,250 vendors</p>
         </div>
       </div>
     </aside>

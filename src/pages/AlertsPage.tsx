@@ -26,13 +26,15 @@ export const AlertsPage: React.FC = () => {
   const severityBadges = { high: 'bg-red-100 text-red-800', medium: 'bg-yellow-100 text-yellow-800', low: 'bg-blue-100 text-blue-800' };
 
   return (
-    <div className="ml-80 min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-green-50">
       <header className="bg-white border-b border-gray-200 p-10 shadow-sm">
-        <h1 className="text-4xl font-bold text-gray-900">Alerts & Notifications</h1>
-        <p className="text-lg text-gray-600 mt-2">Active alerts and notifications for vendor hygiene violations</p>
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl font-bold text-gray-900">Alerts & Notifications</h1>
+          <p className="text-lg text-gray-600 mt-2">Active alerts and notifications for vendor hygiene violations</p>
+        </div>
       </header>
 
-      <div className="p-8 space-y-8">
+      <div className="p-8 space-y-8 max-w-7xl mx-auto">
         <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Severity</label>

@@ -9,9 +9,9 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-green-50 flex">
         <Sidebar />
-        <main className="flex-1">
+        <main className="flex-1 ml-72">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/vendors" element={<VendorList />} />
