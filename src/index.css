@@ -17,3 +17,80 @@
     @apply bg-gray-50 text-gray-900 font-sans;
   }
 }
+
+@layer utilities {
+  @keyframes fade-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-slide {
+    animation: fade-slide-up 0.45s ease-out;
+  }
+
+  .animate-pop-in {
+    animation: pop-in 0.35s ease-out;
+  }
+}
+
+@layer components {
+  /* Default micro-interactions */
+  button,
+  a {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  button:hover,
+  a:hover {
+    @apply -translate-y-0.5;
+  }
+
+  button:active,
+  a:active {
+    @apply translate-y-0 scale-95;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply transition-shadow duration-200 ease-out;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply ring-2 ring-emerald-400 shadow-sm;
+  }
+
+  /* Panels and tiles */
+  .bg-white.rounded-lg {
+    @apply transition-all duration-300 ease-out shadow-sm;
+    animation: fade-slide-up 0.45s ease-out;
+  }
+
+  .bg-white.rounded-lg:hover {
+    @apply shadow-xl -translate-y-1;
+  }
+
+  .quick-tile {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:scale-[1.01];
+    animation: pop-in 0.4s ease-out;
+  }
+}

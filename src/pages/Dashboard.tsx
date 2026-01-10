@@ -201,15 +201,15 @@ export const Dashboard: React.FC = () => {
         <section className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Link to="/vendors" className="flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:shadow-md transition-shadow border border-blue-200">
+            <Link to="/vendors" className="flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 quick-tile">
               <BarChart3 size={32} className="text-blue-600" />
               <span className="font-semibold text-blue-900">View Vendor List</span>
             </Link>
-            <Link to="/inspections" className="flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg hover:shadow-md transition-shadow border border-green-200">
+            <Link to="/inspections" className="flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 quick-tile">
               <Check size={32} className="text-green-600" />
               <span className="font-semibold text-green-900">Log Inspection</span>
             </Link>
-            <Link to="/analytics" className="flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg hover:shadow-md transition-shadow border border-orange-200">
+            <Link to="/analytics" className="flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200 quick-tile">
               <TrendingDown size={32} className="text-orange-600" />
               <span className="font-semibold text-orange-900">View Reports</span>
             </Link>
