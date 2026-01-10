@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -16,12 +16,10 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import { collection, addDoc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker'; 
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Video, ResizeMode } from 'expo-av';
 import { useNavigation } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy'; 
 import { db } from '../config/firebase'; 
-import { Ionicons } from '@expo/vector-icons'; // Assuming you have expo icons
+import { Ionicons } from '@expo/vector-icons'; 
 
 // CONFIGURATION
 const CLOUDINARY_CLOUD_NAME = "dgesmp2st"; 
@@ -49,14 +47,6 @@ export default function VendorRegistration() {
   const [description, setDescription] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null); 
 
-  // Video recording
-  const [showCamera, setShowCamera] = useState(false);
-  const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
-
   const [coordinates, setCoordinates] = useState({
     latitude: 19.0760,
     longitude: 72.8777,
@@ -66,7 +56,7 @@ export default function VendorRegistration() {
     { name: '', price: '', image: '' }
   ]);
 
-  // --- IMAGE & VIDEO LOGIC (Kept same as your original logic) ---
+  // --- IMAGE LOGIC ---
   const pickImage = async (type: 'banner' | 'menu', index?: number) => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
@@ -93,19 +83,17 @@ export default function VendorRegistration() {
     }
   };
 
-  const uploadToCloudinary = async (uri: string, publicId: string, resourceType: 'image' | 'video' = 'image') => {
+  const uploadToCloudinary = async (uri: string, publicId: string) => {
     try {
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
       const data = new FormData();
-      data.append('file', `data:${resourceType === 'video' ? 'video/mp4' : 'image/jpeg'};base64,${base64}`);
+      data.append('file', `data:image/jpeg;base64,${base64}`);
       data.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
       data.append('cloud_name', CLOUDINARY_CLOUD_NAME);
       data.append('folder', 'hygieat/vendors'); 
       data.append('public_id', publicId);
-      if (resourceType === 'video') data.append('resource_type', 'video');
 
-      const urlType = resourceType === 'video' ? 'video' : 'image';
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${urlType}/upload`, {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
         method: 'POST',
         body: data,
       });
@@ -117,31 +105,6 @@ export default function VendorRegistration() {
       console.error("Upload Error:", error);
       throw error;
     }
-  };
-
-  // --- RECORDING LOGIC ---
-  const startVideoRecording = async () => {
-    if (!cameraRef.current || !cameraReady) return;
-    if (!permission?.granted) {
-      const result = await requestPermission();
-      if (!result.granted) return;
-    }
-    try {
-      setIsRecording(true);
-      const video = await cameraRef.current.recordAsync({ maxDuration: 30 });
-      if (video) {
-        setVideoUri(video.uri);
-        setShowCamera(false);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to record video.");
-    } finally {
-      setIsRecording(false);
-    }
-  };
-
-  const stopVideoRecording = () => {
-    if (cameraRef.current && isRecording) cameraRef.current.stopRecording();
   };
 
   // --- SUBMIT LOGIC ---
@@ -160,17 +123,13 @@ export default function VendorRegistration() {
       setLoading(true);
       const cleanStallName = stallName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
 
-      // Upload Assets
+      // Upload Banner
       let bannerUrl = bannerImage;
       if (bannerImage && !bannerImage.startsWith('http')) {
          bannerUrl = await uploadToCloudinary(bannerImage, `${cleanStallName}_banner`);
       }
 
-      let videoUrl = null;
-      if (videoUri && !videoUri.startsWith('http')) {
-        videoUrl = await uploadToCloudinary(videoUri, `${cleanStallName}_video`, 'video');
-      }
-
+      // Upload Menu
       const menuWithCloudUrls = await Promise.all(
         validMenu.map(async (item) => {
           let imageUrl = item.image;
@@ -186,13 +145,15 @@ export default function VendorRegistration() {
         name: stallName,
         description: description,
         image: bannerUrl,
-        video: videoUrl,
-        rating: 5.0,
+        rating: 5.0, // Default start rating
         hygieneGrade: "A",
         lat: coordinates.latitude,
         lng: coordinates.longitude,
         menu: menuWithCloudUrls,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        // New fields for dashboard tasks
+        fssaiUrl: null,
+        dailyVideoUrl: null 
       };
 
       const docRef = await addDoc(collection(db, 'vendors'), vendorData);
@@ -211,39 +172,6 @@ export default function VendorRegistration() {
     }
   };
 
-  // --- CAMERA VIEW ---
-  if (showCamera) {
-    return (
-      <View style={styles.cameraContainer}>
-        <StatusBar hidden />
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing="back"
-          mode="video"
-          onCameraReady={() => setCameraReady(true)}
-        >
-          <View style={styles.cameraOverlay}>
-            <TouchableOpacity style={styles.closeCamBtn} onPress={() => setShowCamera(false)}>
-              <Text style={styles.closeCamText}>✕</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.recordControls}>
-              <TouchableOpacity
-                style={[styles.recordBtnOuter, isRecording && styles.recordingActive]}
-                onPress={isRecording ? stopVideoRecording : startVideoRecording}
-              >
-                <View style={[styles.recordBtnInner, isRecording ? styles.stopSquare : styles.recordCircle]} />
-              </TouchableOpacity>
-              <Text style={styles.recordText}>{isRecording ? "Recording..." : "Tap to Record"}</Text>
-            </View>
-          </View>
-        </CameraView>
-      </View>
-    );
-  }
-
-  // --- MAIN VIEW ---
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -300,40 +228,14 @@ export default function VendorRegistration() {
           </TouchableOpacity>
         </View>
 
-        {/* 2. LIVE VIDEO */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeader}>Hygiene Verification</Text>
-          <Text style={styles.helperText}>Record a short clip of your kitchen/stall setup.</Text>
-          
-          {videoUri ? (
-            <View style={styles.videoPreviewContainer}>
-               <Video
-                  source={{ uri: videoUri }}
-                  style={styles.videoPreview}
-                  useNativeControls
-                  resizeMode={ResizeMode.COVER}
-                  isLooping
-                />
-              <TouchableOpacity style={styles.removeVideoBtn} onPress={() => setVideoUri(null)}>
-                <Ionicons name="trash-outline" size={20} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => setShowCamera(true)} style={styles.videoBtn}>
-              <Ionicons name="videocam-outline" size={24} color="#FFF" />
-              <Text style={styles.videoBtnText}>Record Live Video</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* 3. LOCATION */}
+        {/* 2. LOCATION */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionHeader}>Location</Text>
           <View style={styles.mapFrame}>
             <MapView
               style={styles.map}
               initialRegion={INITIAL_REGION}
-              customMapStyle={darkMapStyle} // Defined at bottom
+              customMapStyle={darkMapStyle} 
             >
               <Marker
                 draggable
@@ -349,7 +251,7 @@ export default function VendorRegistration() {
           <Text style={styles.helperText}>Long press and drag the marker to pinpoint location.</Text>
         </View>
 
-        {/* 4. MENU */}
+        {/* 3. MENU */}
         <View style={styles.sectionContainer}>
           <View style={styles.rowBetween}>
             <Text style={styles.sectionHeader}>Menu</Text>
@@ -427,7 +329,7 @@ const darkMapStyle = [
 ];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0F19' }, // Darker background
+  container: { flex: 1, backgroundColor: '#0B0F19' },
   scrollContent: { padding: 20, paddingBottom: 60 },
   
   header: { marginTop: 40, marginBottom: 30 },
@@ -464,21 +366,6 @@ const styles = StyleSheet.create({
   },
   uploadText: { color: '#00E096', fontWeight: '600', marginTop: 8 },
   bannerPreview: { width: '100%', height: 160, borderRadius: 16 },
-
-  // Video Styles
-  videoBtn: {
-    backgroundColor: '#EF4444',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  videoBtnText: { color: '#FFF', fontWeight: 'bold' },
-  videoPreviewContainer: { height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' },
-  videoPreview: { width: '100%', height: '100%', backgroundColor: '#000' },
-  removeVideoBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: 8, borderRadius: 20 },
 
   // Map
   mapFrame: { height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#374151' },
@@ -529,22 +416,4 @@ const styles = StyleSheet.create({
   },
   disabledBtn: { backgroundColor: '#4B5563', shadowOpacity: 0 },
   submitBtnText: { color: '#0B0F19', fontWeight: '800', fontSize: 18, textTransform: 'uppercase' },
-
-  // Camera Overlay
-  cameraContainer: { flex: 1, backgroundColor: '#000' },
-  camera: { flex: 1 },
-  cameraOverlay: { flex: 1, justifyContent: 'space-between', padding: 30 },
-  closeCamBtn: { alignSelf: 'flex-start', backgroundColor: 'rgba(0,0,0,0.5)', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 30 },
-  closeCamText: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-  recordControls: { alignItems: 'center', marginBottom: 20 },
-  recordBtnOuter: {
-    width: 80, height: 80, borderRadius: 40,
-    borderWidth: 4, borderColor: '#FFF',
-    alignItems: 'center', justifyContent: 'center'
-  },
-  recordingActive: { borderColor: '#EF4444' },
-  recordBtnInner: { backgroundColor: '#EF4444' },
-  recordCircle: { width: 66, height: 66, borderRadius: 33 },
-  stopSquare: { width: 40, height: 40, borderRadius: 6 },
-  recordText: { color: '#FFF', marginTop: 10, fontWeight: '600' }
 });
