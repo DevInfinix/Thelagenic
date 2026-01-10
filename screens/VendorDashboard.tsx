@@ -10,40 +10,100 @@ import {
   Dimensions,
   StatusBar,
   Alert,
-  Modal
+  Modal,
+  Platform
 } from 'react-native';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+// Rename SVG LinearGradient to avoid conflict with Expo LinearGradient
+import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker'; 
-// Using the legacy import as requested for compatibility
 import * as FileSystem from 'expo-file-system/legacy'; 
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // CONFIGURATION
 const CLOUDINARY_CLOUD_NAME = "dgesmp2st"; 
 const CLOUDINARY_UPLOAD_PRESET = "hygieat_preset"; 
+
+// --- TRANSLATIONS ---
+const translations = {
+  en: {
+    grade: "GRADE",
+    trustRating: "TRUST RATING",
+    location: "LOCATION",
+    verificationTasks: "Verification Tasks",
+    verificationSub: "One-time setup for verified badge.",
+    fssaiCert: "FSSAI Certificate",
+    fssaiSub: "Upload document to verify",
+    fssaiVerified: "Verification Complete",
+    upload: "Upload",
+    dailyTasks: "Daily Tasks",
+    dailySub: "Required to maintain daily hygiene score.",
+    dailyVideo: "Daily Kitchen Live",
+    dailyVideoSub: "Record 30s video of kitchen",
+    dailyVideoUploaded: "Uploaded for today",
+    record: "Record",
+    stallMenu: "Stall Menu",
+    noMenu: "No menu items available.",
+    syncing: "Syncing Dashboard...",
+    uploadFailed: "Upload failed.",
+    success: "Success",
+    fssaiSuccess: "FSSAI Certificate Uploaded!",
+    dailySuccess: "Daily Video Uploaded!",
+    recordFailed: "Recording failed",
+    recording: "Recording...",
+    tapToRecord: "Tap to Record (30s)"
+  },
+  hi: {
+    grade: "ग्रेड",
+    trustRating: "विश्वास रेटिंग",
+    location: "स्थान",
+    verificationTasks: "सत्यापन कार्य",
+    verificationSub: "सत्यापित बैज के लिए एक बार का सेटअप।",
+    fssaiCert: "FSSAI प्रमाण पत्र",
+    fssaiSub: "सत्यापन के लिए दस्तावेज़ अपलोड करें",
+    fssaiVerified: "सत्यापन पूरा हुआ",
+    upload: "अपलोड करें",
+    dailyTasks: "दैनिक कार्य",
+    dailySub: "दैनिक स्वच्छता स्कोर बनाए रखने के लिए आवश्यक।",
+    dailyVideo: "दैनिक रसोई लाइव",
+    dailyVideoSub: "रसोई का 30 सेकंड का वीडियो रिकॉर्ड करें",
+    dailyVideoUploaded: "आज के लिए अपलोड किया गया",
+    record: "रिकॉर्ड करें",
+    stallMenu: "स्टॉल मेनू",
+    noMenu: "कोई मेनू आइटम उपलब्ध नहीं है।",
+    syncing: "डैशबोर्ड सिंक हो रहा है...",
+    uploadFailed: "अपलोड विफल रहा।",
+    success: "सफल",
+    fssaiSuccess: "FSSAI प्रमाणपत्र अपलोड किया गया!",
+    dailySuccess: "दैनिक वीडियो अपलोड किया गया!",
+    recordFailed: "रिकॉर्डिंग विफल रही",
+    recording: "रिकॉर्डिंग...",
+    tapToRecord: "रिकॉर्ड करने के लिए टैप करें (30s)"
+  }
+};
 
 // TYPES
 interface VendorData {
   name: string;
   description: string;
   image: string;
-  rating: number;
+  rating: number; // This comes from Firebase
   hygieneGrade: string;
   lat: number;
   lng: number;
   menu: Array<{ name: string; price: string; image: string; }>;
-  fssaiUrl?: string; // New field for FSSAI Certificate
-  dailyVideoUrl?: string; // New field for Today's Video
+  fssaiUrl?: string; // FSSAI Certificate
+  dailyVideoUrl?: string; // Today's Video
 }
 
 // --- SPEEDOMETER COMPONENT ---
 const ModernSpeedometer = ({ rating, max = 5 }: { rating: number; max?: number }) => {
-  const size = 180;
-  const strokeWidth = 15;
+  const size = 160; // Slightly smaller to fit better
+  const strokeWidth = 12;
   const center = size / 2;
   const radius = (size - strokeWidth) / 2;
   const percentage = Math.min(Math.max(rating / max, 0), 1);
@@ -64,17 +124,18 @@ const ModernSpeedometer = ({ rating, max = 5 }: { rating: number; max?: number }
     <View style={styles.gaugeContainer}>
       <Svg width={size} height={size / 2 + 10} viewBox={`0 0 ${size} ${size / 2 + 10}`}>
         <Defs>
-          <LinearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#FF4B4B" stopOpacity="1" />
-            <Stop offset="0.5" stopColor="#FFD336" stopOpacity="1" />
-            <Stop offset="1" stopColor="#00E096" stopOpacity="1" />
-          </LinearGradient>
+          <SvgLinearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor="#EF4444" stopOpacity="1" />
+            <Stop offset="0.5" stopColor="#F59E0B" stopOpacity="1" />
+            <Stop offset="1" stopColor="#10B981" stopOpacity="1" />
+          </SvgLinearGradient>
         </Defs>
-        <Path d={createArc(Math.PI, 2 * Math.PI)} stroke="#1F2937" strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
+        {/* Track Color changed for Light Mode */}
+        <Path d={createArc(Math.PI, 2 * Math.PI)} stroke="#e2e8f0" strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
         <Path d={createArc(Math.PI, Math.PI + (percentage * Math.PI))} stroke="url(#grad)" strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
       </Svg>
       <View style={styles.gaugeTextContainer}>
-        <Text style={styles.gaugeScore}>{rating.toFixed(1)}</Text>
+        <Text style={styles.gaugeScore}>{rating ? rating.toFixed(1) : "0.0"}</Text>
         <Text style={styles.gaugeMax}>/ {max}</Text>
       </View>
     </View>
@@ -87,8 +148,10 @@ export default function VendorDashboard({ route, navigation }: any) {
   const [loading, setLoading] = useState(true);
   
   // UI State
-  const [menuOpen, setMenuOpen] = useState(false); // Dropdown closed by default
+  const [menuOpen, setMenuOpen] = useState(true); // Open by default for better UX
   const [uploadingTask, setUploadingTask] = useState<string | null>(null);
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+  const t = translations[lang];
 
   // Camera State
   const [showCamera, setShowCamera] = useState(false);
@@ -104,7 +167,10 @@ export default function VendorDashboard({ route, navigation }: any) {
   const fetchVendor = async () => {
     try {
       const snap = await getDoc(doc(db, 'vendors', vendorId));
-      if (snap.exists()) setVendor(snap.data() as VendorData);
+      if (snap.exists()) {
+        const data = snap.data() as VendorData;
+        setVendor(data);
+      }
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
   };
@@ -149,9 +215,9 @@ export default function VendorDashboard({ route, navigation }: any) {
         await updateDoc(doc(db, 'vendors', vendorId), { fssaiUrl: url });
         // Update Local State
         setVendor(prev => prev ? { ...prev, fssaiUrl: url } : null);
-        Alert.alert("Success", "FSSAI Certificate Uploaded!");
+        Alert.alert(t.success, t.fssaiSuccess);
       } catch (e) {
-        Alert.alert("Error", "Upload failed.");
+        Alert.alert("Error", t.uploadFailed);
       } finally {
         setUploadingTask(null);
       }
@@ -174,7 +240,7 @@ export default function VendorDashboard({ route, navigation }: any) {
       }
     } catch (e) {
       console.log(e);
-      Alert.alert("Error", "Recording failed");
+      Alert.alert("Error", t.recordFailed);
     } finally {
       setIsRecording(false);
       setShowCamera(false);
@@ -187,9 +253,9 @@ export default function VendorDashboard({ route, navigation }: any) {
       const url = await uploadToCloudinary(uri, 'video');
       await updateDoc(doc(db, 'vendors', vendorId), { dailyVideoUrl: url });
       setVendor(prev => prev ? { ...prev, dailyVideoUrl: url } : null);
-      Alert.alert("Success", "Daily Video Uploaded!");
+      Alert.alert(t.success, t.dailySuccess);
     } catch (e) {
-      Alert.alert("Error", "Video upload failed.");
+      Alert.alert("Error", t.uploadFailed);
     } finally {
       setUploadingTask(null);
     }
@@ -219,7 +285,7 @@ export default function VendorDashboard({ route, navigation }: any) {
               >
                 <View style={[styles.recordBtnInner, isRecording ? styles.stopSquare : styles.recordCircle]} />
               </TouchableOpacity>
-              <Text style={styles.recordText}>{isRecording ? "Recording..." : "Tap to Record (30s)"}</Text>
+              <Text style={styles.recordText}>{isRecording ? t.recording : t.tapToRecord}</Text>
             </View>
           </View>
         </CameraView>
@@ -229,23 +295,35 @@ export default function VendorDashboard({ route, navigation }: any) {
 
   if (loading || !vendor) return (
     <View style={styles.centerContainer}>
-      <ActivityIndicator size="large" color="#00E096" />
-      <Text style={styles.loadingText}>Syncing Dashboard...</Text>
+      <ActivityIndicator size="large" color="#10B981" />
+      <Text style={styles.loadingText}>{t.syncing}</Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      {/* Light Theme Status Bar */}
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         
         {/* HERO SECTION */}
         <View style={styles.heroContainer}>
           <Image source={{ uri: vendor.image }} style={styles.heroImage} />
-          <View style={styles.heroOverlay} />
+          {/* Subtle gradient overlay for back button visibility */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.6)', 'transparent']}
+            style={styles.heroGradient}
+          />
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.langButton} 
+            onPress={() => setLang(lang === 'en' ? 'hi' : 'en')}
+          >
+            <Text style={styles.langText}>{lang === 'en' ? 'हिन्दी' : 'English'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -253,67 +331,92 @@ export default function VendorDashboard({ route, navigation }: any) {
           {/* INFO CARD */}
           <View style={styles.infoCard}>
             <View style={styles.headerRow}>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={styles.stallName}>{vendor.name}</Text>
                 <Text style={styles.stallDesc} numberOfLines={2}>{vendor.description}</Text>
               </View>
               <View style={styles.hygieneBadge}>
-                <Text style={styles.gradeLabel}>GRADE</Text>
+                <Text style={styles.gradeLabel}>{t.grade}</Text>
                 <Text style={styles.gradeValue}>{vendor.hygieneGrade}</Text>
               </View>
             </View>
+            
             <View style={styles.divider} />
+            
             <View style={styles.statsRow}>
               <View style={styles.statCol}>
-                <Text style={styles.statLabel}>TRUST RATING</Text>
+                <Text style={styles.statLabel}>{t.trustRating}</Text>
                 <ModernSpeedometer rating={vendor.rating} />
               </View>
               <View style={styles.locationCol}>
-                 <Text style={styles.statLabel}>LOCATION</Text>
-                 <View style={styles.locBox}><Ionicons name="location" size={16} color="#00E096" /><Text style={styles.locText}>{vendor.lat.toFixed(2)}, {vendor.lng.toFixed(2)}</Text></View>
+                 <Text style={styles.statLabel}>{t.location}</Text>
+                 <View style={styles.locBox}>
+                   <Ionicons name="location" size={16} color="#10B981" />
+                   <Text style={styles.locText}>{vendor.lat.toFixed(4)}</Text>
+                 </View>
+                 <View style={styles.locBox}>
+                   <Ionicons name="location" size={16} color="#10B981" />
+                   <Text style={styles.locText}>{vendor.lng.toFixed(4)}</Text>
+                 </View>
               </View>
             </View>
           </View>
 
-          {/* --- SECTION: PENDING TASKS --- */}
+          {/* --- SECTION: GENERAL TASKS --- */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Daily Tasks</Text>
-            <Text style={styles.sectionSub}>Complete these to verify your stall today.</Text>
-            
-            {/* Task 1: FSSAI */}
-            <View style={[styles.taskCard, vendor.fssaiUrl && styles.taskComplete]}>
-              <View style={styles.taskIcon}>
-                <Ionicons name={vendor.fssaiUrl ? "checkmark-done" : "document-text"} size={24} color={vendor.fssaiUrl ? "#0B0F19" : "#00E096"} />
+            <Text style={styles.sectionTitle}>{t.verificationTasks}</Text>
+            <Text style={styles.sectionSub}>{t.verificationSub}</Text>
+
+             {/* FSSAI Card */}
+             <View style={[styles.taskCard, vendor.fssaiUrl && styles.taskComplete]}>
+              <View style={[styles.taskIcon, vendor.fssaiUrl && styles.taskIconComplete]}>
+                <Ionicons name={vendor.fssaiUrl ? "shield-checkmark" : "document-text-outline"} size={24} color={vendor.fssaiUrl ? "#059669" : "#64748b"} />
               </View>
               <View style={styles.taskContent}>
-                <Text style={[styles.taskTitle, vendor.fssaiUrl && styles.textComplete]}>Upload FSSAI Certificate</Text>
-                <Text style={[styles.taskDesc, vendor.fssaiUrl && styles.textCompleteSub]}>{vendor.fssaiUrl ? "Verified" : "Required for license badge"}</Text>
+                <Text style={[styles.taskTitle, vendor.fssaiUrl && styles.textComplete]}>{t.fssaiCert}</Text>
+                <Text style={[styles.taskDesc, vendor.fssaiUrl && styles.textCompleteSub]}>{vendor.fssaiUrl ? t.fssaiVerified : t.fssaiSub}</Text>
               </View>
               {!vendor.fssaiUrl && (
-                <TouchableOpacity style={styles.actionBtn} onPress={handleUploadFSSAI} disabled={!!uploadingTask}>
-                  {uploadingTask === 'fssai' ? <ActivityIndicator size="small" color="#0B0F19" /> : <Text style={styles.actionBtnText}>Upload</Text>}
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Task 2: Daily Video */}
-            <View style={[styles.taskCard, vendor.dailyVideoUrl && styles.taskComplete]}>
-              <View style={styles.taskIcon}>
-                <Ionicons name={vendor.dailyVideoUrl ? "checkmark-done" : "videocam"} size={24} color={vendor.dailyVideoUrl ? "#0B0F19" : "#00E096"} />
-              </View>
-              <View style={styles.taskContent}>
-                <Text style={[styles.taskTitle, vendor.dailyVideoUrl && styles.textComplete]}>Record Live Video</Text>
-                <Text style={[styles.taskDesc, vendor.dailyVideoUrl && styles.textCompleteSub]}>{vendor.dailyVideoUrl ? "Uploaded for today" : "Show kitchen hygiene (30s)"}</Text>
-              </View>
-              {!vendor.dailyVideoUrl && (
-                <TouchableOpacity style={styles.actionBtn} onPress={() => setShowCamera(true)} disabled={!!uploadingTask}>
-                  {uploadingTask === 'video' ? <ActivityIndicator size="small" color="#0B0F19" /> : <Text style={styles.actionBtnText}>Record</Text>}
+                <TouchableOpacity onPress={handleUploadFSSAI} disabled={!!uploadingTask}>
+                  <LinearGradient
+                    colors={['#10B981', '#059669']}
+                    style={styles.actionBtn}
+                  >
+                     {uploadingTask === 'fssai' ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.actionBtnText}>{t.upload}</Text>}
+                  </LinearGradient>
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
-          {/* --- SECTION: COLLAPSIBLE MENU --- */}
+          {/* --- SECTION: DAILY TASKS --- */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t.dailyTasks}</Text>
+            <Text style={styles.sectionSub}>{t.dailySub}</Text>
+            
+            {/* Daily Video Card */}
+            <View style={[styles.taskCard, vendor.dailyVideoUrl && styles.taskComplete]}>
+              <View style={[styles.taskIcon, vendor.dailyVideoUrl && styles.taskIconComplete]}>
+                <Ionicons name={vendor.dailyVideoUrl ? "videocam" : "videocam-outline"} size={24} color={vendor.dailyVideoUrl ? "#059669" : "#64748b"} />
+              </View>
+              <View style={styles.taskContent}>
+                <Text style={[styles.taskTitle, vendor.dailyVideoUrl && styles.textComplete]}>{t.dailyVideo}</Text>
+                <Text style={[styles.taskDesc, vendor.dailyVideoUrl && styles.textCompleteSub]}>{vendor.dailyVideoUrl ? t.dailyVideoUploaded : t.dailyVideoSub}</Text>
+              </View>
+              {!vendor.dailyVideoUrl && (
+                <TouchableOpacity onPress={() => setShowCamera(true)} disabled={!!uploadingTask}>
+                  <LinearGradient
+                    colors={['#EF4444', '#DC2626']} // Red gradient for recording
+                    style={styles.actionBtn}
+                  >
+                    {uploadingTask === 'video' ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.actionBtnText}>{t.record}</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* --- SECTION: MENU --- */}
           <View style={styles.section}>
             <TouchableOpacity 
               style={styles.dropdownHeader} 
@@ -321,10 +424,12 @@ export default function VendorDashboard({ route, navigation }: any) {
               activeOpacity={0.7}
             >
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Ionicons name="restaurant" size={20} color="#00E096" style={{marginRight: 10}}/>
-                <Text style={styles.dropdownTitle}>Menu Items ({vendor.menu?.length || 0})</Text>
+                <View style={styles.menuIconBadge}>
+                    <Ionicons name="fast-food-outline" size={20} color="#10B981" />
+                </View>
+                <Text style={styles.dropdownTitle}>{t.stallMenu} ({vendor.menu?.length || 0})</Text>
               </View>
-              <Ionicons name={menuOpen ? "chevron-up" : "chevron-down"} size={24} color="#9CA3AF" />
+              <Ionicons name={menuOpen ? "chevron-up" : "chevron-down"} size={24} color="#64748b" />
             </TouchableOpacity>
             
             {menuOpen && (
@@ -340,7 +445,7 @@ export default function VendorDashboard({ route, navigation }: any) {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyText}>No menu items available.</Text>
+                  <Text style={styles.emptyText}>{t.noMenu}</Text>
                 )}
               </View>
             )}
@@ -355,87 +460,105 @@ export default function VendorDashboard({ route, navigation }: any) {
 const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0F19' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0F19' },
-  loadingText: { color: '#00E096', marginTop: 10 },
+  // --- THEME: Clean Light Modern ---
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
+  loadingText: { color: '#10B981', marginTop: 12, fontWeight: '600' },
   
+  // Hero
   heroContainer: { height: 280, width: '100%', position: 'relative' },
   heroImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11, 15, 25, 0.4)' },
-  backButton: { position: 'absolute', top: 50, left: 20, backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 20 },
+  heroGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 100 },
+  backButton: { position: 'absolute', top: 50, left: 20, backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 20 },
+  langButton: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(255,255,255,0.9)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
+  langText: { color: '#334155', fontWeight: '700', fontSize: 12 },
 
+  // Main Content
   mainContent: { marginTop: -60, paddingHorizontal: 20 },
+  
+  // Info Card
   infoCard: {
-    backgroundColor: '#1F2937', borderRadius: 20, padding: 24,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
-    borderWidth: 1, borderColor: '#374151', marginBottom: 20
+    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 8,
+    marginBottom: 24, borderWidth: 1, borderColor: '#f1f5f9'
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  stallName: { fontSize: 24, fontWeight: '800', color: '#FFF', marginBottom: 4 },
-  stallDesc: { color: '#9CA3AF', fontSize: 13, paddingRight: 10 },
-  hygieneBadge: { backgroundColor: '#00E096', borderRadius: 12, padding: 10, alignItems: 'center', minWidth: 60 },
-  gradeLabel: { fontSize: 8, fontWeight: 'bold', color: '#0B0F19' },
-  gradeValue: { fontSize: 22, fontWeight: '900', color: '#0B0F19' },
-  divider: { height: 1, backgroundColor: '#374151', marginVertical: 20 },
+  stallName: { fontSize: 26, fontWeight: '800', color: '#1e293b', marginBottom: 6, letterSpacing: -0.5 },
+  stallDesc: { color: '#64748b', fontSize: 14, lineHeight: 20 },
+  hygieneBadge: { 
+    backgroundColor: '#ecfdf5', borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12, 
+    alignItems: 'center', minWidth: 60, borderWidth: 1, borderColor: '#d1fae5'
+  },
+  gradeLabel: { fontSize: 9, fontWeight: '700', color: '#047857', letterSpacing: 0.5 },
+  gradeValue: { fontSize: 24, fontWeight: '900', color: '#10B981', lineHeight: 28 },
+  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 24 },
   
+  // Stats
   statsRow: { flexDirection: 'row', alignItems: 'center' },
-  statCol: { flex: 1, alignItems: 'center' },
-  locationCol: { flex: 1, paddingLeft: 20 },
-  statLabel: { color: '#6B7280', fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 10 },
-  locBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#111827', padding: 8, borderRadius: 8 },
-  locText: { color: '#D1D5DB', marginLeft: 6, fontSize: 12, fontWeight: '600' },
+  statCol: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  locationCol: { flex: 1, paddingLeft: 24, justifyContent: 'center' },
+  statLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' },
+  locBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f8fafc', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#f1f5f9' },
+  locText: { color: '#475569', marginLeft: 8, fontSize: 13, fontWeight: '600' },
 
-  gaugeContainer: { alignItems: 'center', justifyContent: 'center', height: 100 },
-  gaugeTextContainer: { position: 'absolute', bottom: 0, alignItems: 'center' },
-  gaugeScore: { fontSize: 32, fontWeight: '800', color: '#FFF' },
-  gaugeMax: { fontSize: 12, color: '#9CA3AF' },
+  gaugeContainer: { alignItems: 'center', justifyContent: 'center', height: 90 },
+  gaugeTextContainer: { position: 'absolute', bottom: -5, alignItems: 'center' },
+  gaugeScore: { fontSize: 36, fontWeight: '800', color: '#1e293b' },
+  gaugeMax: { fontSize: 13, color: '#94a3b8', fontWeight: '500' },
 
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
-  sectionSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 16 },
+  // Sections
+  section: { marginBottom: 28 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
+  sectionSub: { fontSize: 13, color: '#64748b', marginBottom: 16, marginTop: 2 },
   
-  // Tasks
+  // Task Cards
   taskCard: {
-    backgroundColor: '#1F2937', borderRadius: 12, padding: 16, marginBottom: 12,
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 12,
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#374151'
+    borderWidth: 1, borderColor: '#e2e8f0',
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
   },
-  taskComplete: { backgroundColor: '#00E096', borderColor: '#00E096' },
+  taskComplete: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
   taskIcon: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12
+    width: 48, height: 48, borderRadius: 24, backgroundColor: '#f1f5f9',
+    justifyContent: 'center', alignItems: 'center', marginRight: 16
   },
+  taskIconComplete: { backgroundColor: '#dcfce7' },
   taskContent: { flex: 1 },
-  taskTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
-  taskDesc: { color: '#9CA3AF', fontSize: 12, marginTop: 2 },
-  textComplete: { color: '#0B0F19' },
-  textCompleteSub: { color: '#1F2937' },
+  taskTitle: { color: '#1e293b', fontWeight: '700', fontSize: 15 },
+  taskDesc: { color: '#64748b', fontSize: 12, marginTop: 4 },
+  textComplete: { color: '#15803d' },
+  textCompleteSub: { color: '#166534' },
   
-  actionBtn: { backgroundColor: '#00E096', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
-  actionBtnText: { color: '#0B0F19', fontWeight: 'bold', fontSize: 12 },
+  actionBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20 },
+  actionBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
 
-  // Menu Dropdown
+  // Menu
   dropdownHeader: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    backgroundColor: '#1F2937', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#374151'
+    backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0',
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 2
   },
-  dropdownTitle: { fontSize: 16, fontWeight: '700', color: '#FFF' },
-  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 16 },
+  menuIconBadge: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  dropdownTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 20 },
   menuItemCard: {
-    width: (width - 60) / 2, backgroundColor: '#1F2937', borderRadius: 16,
-    marginBottom: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#374151'
+    width: (width - 56) / 2, backgroundColor: '#FFFFFF', borderRadius: 16,
+    marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0',
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3
   },
-  menuImage: { width: '100%', height: 120, resizeMode: 'cover' },
+  menuImage: { width: '100%', height: 130, resizeMode: 'cover' },
   menuInfo: { padding: 12 },
-  menuName: { color: '#FFF', fontWeight: '600', fontSize: 14, marginBottom: 4 },
-  menuPrice: { color: '#00E096', fontWeight: 'bold', fontSize: 16 },
-  emptyText: { color: '#6B7280', width: '100%', textAlign: 'center', marginTop: 10 },
+  menuName: { color: '#1e293b', fontWeight: '700', fontSize: 14, marginBottom: 4 },
+  menuPrice: { color: '#10B981', fontWeight: '800', fontSize: 16 },
+  emptyText: { color: '#94a3b8', width: '100%', textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
 
   // Camera
   cameraContainer: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, justifyContent: 'space-between', padding: 30, paddingTop: 60, paddingBottom: 50 },
-  closeCamBtn: { alignSelf: 'flex-end', padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 25 },
+  closeCamBtn: { alignSelf: 'flex-end', padding: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 25 },
   recordContainer: { alignItems: 'center' },
   recordBtnOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
   recordingActive: { borderColor: '#EF4444' },
