@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -14,9 +14,10 @@ import {
   StatusBar
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker'; 
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy'; 
 import { db } from '../config/firebase'; 
 import { Ionicons } from '@expo/vector-icons'; 
@@ -40,21 +41,57 @@ const INITIAL_REGION = {
 
 export default function VendorRegistration() {
   const navigation = useNavigation();
+  const auth = getAuth();
+
+  // Auth State
+  const [initializing, setInitializing] = useState(true);
+  const [isLoginMode, setIsLoginMode] = useState(false); // Toggle between Login & Register
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Stall Form State
   const [loading, setLoading] = useState(false);
-  
-  // Stall Details
   const [stallName, setStallName] = useState('');
   const [description, setDescription] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null); 
-
   const [coordinates, setCoordinates] = useState({
     latitude: 19.0760,
     longitude: 72.8777,
   });
-  
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
     { name: '', price: '', image: '' }
   ]);
+
+  // --- 1. AUTH CHECK ON MOUNT ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User is logged in, check if they have a vendor profile
+        try {
+          const q = query(collection(db, 'vendors'), where('email', '==', user.email));
+          const snapshot = await getDocs(q);
+          
+          if (!snapshot.empty) {
+            // Vendor found, redirect to dashboard
+            const vendorId = snapshot.docs[0].id;
+            
+            // Fix: Use CommonActions.reset or cast routes to any to avoid strict typing issues if types aren't fully defined
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'VendorDashboard', params: { vendorId } }],
+              })
+            );
+            return;
+          }
+        } catch (error) {
+          console.error("Error fetching vendor profile:", error);
+        }
+      }
+      setInitializing(false);
+    });
+    return unsubscribe;
+  }, []);
 
   // --- IMAGE LOGIC ---
   const pickImage = async (type: 'banner' | 'menu', index?: number) => {
@@ -107,8 +144,29 @@ export default function VendorRegistration() {
     }
   };
 
-  // --- SUBMIT LOGIC ---
+  // --- LOGIN LOGIC ---
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Missing Fields", "Please enter email and password.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await signInWithEmailAndPassword(auth, email, password);
+      // The useEffect listener will handle the redirect if login succeeds
+    } catch (error: any) {
+      setLoading(false);
+      Alert.alert("Login Failed", error.message);
+    }
+  };
+
+  // --- REGISTER LOGIC ---
   const handleRegister = async () => {
+    // 1. Validation
+    if (!email || !password) {
+      Alert.alert('Missing Auth Details', 'Please enter email and password.');
+      return;
+    }
     if (!stallName || !description || !bannerImage) {
       Alert.alert('Missing Fields', 'Please fill in name, description, and upload a banner.');
       return;
@@ -121,15 +179,19 @@ export default function VendorRegistration() {
 
     try {
       setLoading(true);
-      const cleanStallName = stallName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
 
-      // Upload Banner
+      // 2. Create Auth User
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 3. Upload Assets
+      const cleanStallName = stallName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      
       let bannerUrl = bannerImage;
       if (bannerImage && !bannerImage.startsWith('http')) {
          bannerUrl = await uploadToCloudinary(bannerImage, `${cleanStallName}_banner`);
       }
 
-      // Upload Menu
       const menuWithCloudUrls = await Promise.all(
         validMenu.map(async (item) => {
           let imageUrl = item.image;
@@ -141,36 +203,50 @@ export default function VendorRegistration() {
         })
       );
 
+      // 4. Save to Firestore (Including Auth Info)
       const vendorData = {
         name: stallName,
         description: description,
         image: bannerUrl,
-        rating: 5.0, // Default start rating
+        rating: 5.0,
         hygieneGrade: "A",
         lat: coordinates.latitude,
         lng: coordinates.longitude,
         menu: menuWithCloudUrls,
         createdAt: new Date().toISOString(),
-        // New fields for dashboard tasks
         fssaiUrl: null,
-        dailyVideoUrl: null 
+        dailyVideoUrl: null,
+        // Link to Auth User
+        email: user.email,
+        ownerId: user.uid 
       };
 
       const docRef = await addDoc(collection(db, 'vendors'), vendorData);
       
       // Navigate to Dashboard
-      (navigation as any).reset({
-        index: 0,
-        routes: [{ name: 'VendorDashboard', params: { vendorId: docRef.id } }],
-      });
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'VendorDashboard', params: { vendorId: docRef.id } }],
+        })
+      );
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration Error: ", error);
-      Alert.alert('Error', 'Could not register stall. Please try again.');
+      Alert.alert('Registration Failed', error.message || 'Could not register stall.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (initializing) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#00E096" />
+        <Text style={styles.loadingText}>Checking authentication...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView 
@@ -182,137 +258,196 @@ export default function VendorRegistration() {
         
         {/* HEADER */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Create Stall</Text>
-          <Text style={styles.headerSubtitle}>Start your digital journey with Hygieat</Text>
+          <Text style={styles.headerTitle}>{isLoginMode ? "Welcome Back" : "Partner Registration"}</Text>
+          <Text style={styles.headerSubtitle}>
+            {isLoginMode ? "Log in to manage your stall" : "Join Hygieat and grow your business"}
+          </Text>
         </View>
 
-        {/* 1. BASIC INFO */}
+        {/* --- AUTH SECTION --- */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeader}>Basic Details</Text>
-          
+          <Text style={styles.sectionHeader}>Account Details</Text>
           <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>STALL NAME</Text>
+            <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="e.g. Cyber Chaat Wala"
+              placeholder="vendor@example.com"
               placeholderTextColor="#4B5563"
-              value={stallName}
-              onChangeText={setStallName}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
             />
           </View>
-
           <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>DESCRIPTION</Text>
+            <Text style={styles.inputLabel}>PASSWORD</Text>
             <TextInput
-              style={[styles.textInput, styles.textArea]}
-              placeholder="Tell us what makes your food special..."
+              style={styles.textInput}
+              placeholder="••••••••"
               placeholderTextColor="#4B5563"
-              multiline
-              numberOfLines={3}
-              value={description}
-              onChangeText={setDescription}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
             />
           </View>
-
-          {/* BANNER UPLOAD */}
-          <Text style={styles.inputLabel}>COVER IMAGE</Text>
-          <TouchableOpacity onPress={() => pickImage('banner')} activeOpacity={0.8}>
-            {bannerImage ? (
-              <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
-            ) : (
-              <View style={styles.uploadPlaceholder}>
-                <Ionicons name="image-outline" size={32} color="#00E096" />
-                <Text style={styles.uploadText}>Upload Cover Image</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
 
-        {/* 2. LOCATION */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeader}>Location</Text>
-          <View style={styles.mapFrame}>
-            <MapView
-              style={styles.map}
-              initialRegion={INITIAL_REGION}
-              customMapStyle={darkMapStyle} 
+        {/* --- LOGIN BUTTON (If Login Mode) --- */}
+        {isLoginMode && (
+          <View>
+            <TouchableOpacity 
+              style={[styles.submitBtn, loading && styles.disabledBtn]} 
+              onPress={handleLogin}
+              disabled={loading}
             >
-              <Marker
-                draggable
-                coordinate={coordinates}
-                onDragEnd={(e) => setCoordinates(e.nativeEvent.coordinate)}
-                pinColor="#00E096"
-              />
-            </MapView>
-            <View style={styles.coordsOverlay}>
-              <Text style={styles.coordText}>{coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}</Text>
-            </View>
-          </View>
-          <Text style={styles.helperText}>Long press and drag the marker to pinpoint location.</Text>
-        </View>
-
-        {/* 3. MENU */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.sectionHeader}>Menu</Text>
-            <TouchableOpacity onPress={() => setMenuItems([...menuItems, { name: '', price: '', image: '' }])}>
-              <Text style={styles.addMenuText}>+ Add Item</Text>
+              {loading ? <ActivityIndicator color="#0B0F19" /> : <Text style={styles.submitBtnText}>Log In</Text>}
             </TouchableOpacity>
           </View>
+        )}
 
-          {menuItems.map((item, index) => (
-            <View key={index} style={styles.menuCard}>
-              <TouchableOpacity onPress={() => pickImage('menu', index)} style={styles.menuImgPicker}>
-                {item.image ? (
-                  <Image source={{ uri: item.image }} style={styles.menuImg} />
-                ) : (
-                  <Ionicons name="camera" size={20} color="#6B7280" />
-                )}
-              </TouchableOpacity>
+        {/* --- REGISTRATION FORM (Only if NOT Login Mode) --- */}
+        {!isLoginMode && (
+          <>
+            {/* 1. STALL INFO */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>Stall Details</Text>
               
-              <View style={styles.menuInputs}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>STALL NAME</Text>
                 <TextInput
-                  placeholder="Item Name"
+                  style={styles.textInput}
+                  placeholder="e.g. Cyber Chaat Wala"
                   placeholderTextColor="#4B5563"
-                  style={styles.menuInput}
-                  value={item.name}
-                  onChangeText={(t) => {
-                    const n = [...menuItems]; n[index].name = t; setMenuItems(n);
-                  }}
-                />
-                <TextInput
-                  placeholder="Price (₹)"
-                  placeholderTextColor="#4B5563"
-                  keyboardType="numeric"
-                  style={styles.menuInput}
-                  value={item.price}
-                  onChangeText={(t) => {
-                    const n = [...menuItems]; n[index].price = t; setMenuItems(n);
-                  }}
+                  value={stallName}
+                  onChangeText={setStallName}
                 />
               </View>
-              
-              {index > 0 && (
-                <TouchableOpacity onPress={() => setMenuItems(menuItems.filter((_, i) => i !== index))}>
-                   <Ionicons name="close-circle" size={24} color="#EF4444" />
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
-        </View>
 
-        {/* SUBMIT BUTTON */}
-        <TouchableOpacity 
-          style={[styles.submitBtn, loading && styles.disabledBtn]} 
-          onPress={handleRegister}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.submitBtnText}>Launch Stall 🚀</Text>
-          )}
-        </TouchableOpacity>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>DESCRIPTION</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  placeholder="Tell us what makes your food special..."
+                  placeholderTextColor="#4B5563"
+                  multiline
+                  numberOfLines={3}
+                  value={description}
+                  onChangeText={setDescription}
+                />
+              </View>
+
+              <Text style={styles.inputLabel}>COVER IMAGE</Text>
+              <TouchableOpacity onPress={() => pickImage('banner')} activeOpacity={0.8}>
+                {bannerImage ? (
+                  <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Ionicons name="image-outline" size={32} color="#00E096" />
+                    <Text style={styles.uploadText}>Upload Cover Image</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* 2. LOCATION */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>Location</Text>
+              <View style={styles.mapFrame}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={INITIAL_REGION}
+                  customMapStyle={darkMapStyle} 
+                >
+                  <Marker
+                    draggable
+                    coordinate={coordinates}
+                    onDragEnd={(e) => setCoordinates(e.nativeEvent.coordinate)}
+                    pinColor="#00E096"
+                  />
+                </MapView>
+                <View style={styles.coordsOverlay}>
+                  <Text style={styles.coordText}>{coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}</Text>
+                </View>
+              </View>
+              <Text style={styles.helperText}>Long press and drag the marker to pinpoint location.</Text>
+            </View>
+
+            {/* 3. MENU */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.sectionHeader}>Menu</Text>
+                <TouchableOpacity onPress={() => setMenuItems([...menuItems, { name: '', price: '', image: '' }])}>
+                  <Text style={styles.addMenuText}>+ Add Item</Text>
+                </TouchableOpacity>
+              </View>
+
+              {menuItems.map((item, index) => (
+                <View key={index} style={styles.menuCard}>
+                  <TouchableOpacity onPress={() => pickImage('menu', index)} style={styles.menuImgPicker}>
+                    {item.image ? (
+                      <Image source={{ uri: item.image }} style={styles.menuImg} />
+                    ) : (
+                      <Ionicons name="camera" size={20} color="#6B7280" />
+                    )}
+                  </TouchableOpacity>
+                  
+                  <View style={styles.menuInputs}>
+                    <TextInput
+                      placeholder="Item Name"
+                      placeholderTextColor="#4B5563"
+                      style={styles.menuInput}
+                      value={item.name}
+                      onChangeText={(t) => {
+                        const n = [...menuItems]; n[index].name = t; setMenuItems(n);
+                      }}
+                    />
+                    <TextInput
+                      placeholder="Price (₹)"
+                      placeholderTextColor="#4B5563"
+                      keyboardType="numeric"
+                      style={styles.menuInput}
+                      value={item.price}
+                      onChangeText={(t) => {
+                        const n = [...menuItems]; n[index].price = t; setMenuItems(n);
+                      }}
+                    />
+                  </View>
+                  
+                  {index > 0 && (
+                    <TouchableOpacity onPress={() => setMenuItems(menuItems.filter((_, i) => i !== index))}>
+                      <Ionicons name="close-circle" size={24} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* REGISTER BUTTON */}
+            <TouchableOpacity 
+              style={[styles.submitBtn, loading && styles.disabledBtn]} 
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#0B0F19" />
+              ) : (
+                <Text style={styles.submitBtnText}>Create Account & Stall 🚀</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* --- MODE TOGGLE --- */}
+        <View style={styles.toggleContainer}>
+          <Text style={styles.toggleText}>
+            {isLoginMode ? "Don't have a stall yet?" : "Already have an account?"}
+          </Text>
+          <TouchableOpacity onPress={() => setIsLoginMode(!isLoginMode)}>
+            <Text style={styles.toggleBtn}>
+              {isLoginMode ? "Register New Stall" : "Log In"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
       </ScrollView>
     </KeyboardAvoidingView>
@@ -331,6 +466,8 @@ const darkMapStyle = [
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F19' },
   scrollContent: { padding: 20, paddingBottom: 60 },
+  centerContainer: { flex: 1, backgroundColor: '#0B0F19', justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: '#00E096', marginTop: 10 },
   
   header: { marginTop: 40, marginBottom: 30 },
   headerTitle: { fontSize: 32, fontWeight: '800', color: '#FFF', letterSpacing: 0.5 },
@@ -407,7 +544,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
     shadowColor: "#00E096",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -416,4 +553,9 @@ const styles = StyleSheet.create({
   },
   disabledBtn: { backgroundColor: '#4B5563', shadowOpacity: 0 },
   submitBtnText: { color: '#0B0F19', fontWeight: '800', fontSize: 18, textTransform: 'uppercase' },
+
+  // Toggle
+  toggleContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 30, marginBottom: 20 },
+  toggleText: { color: '#9CA3AF', marginRight: 5 },
+  toggleBtn: { color: '#00E096', fontWeight: 'bold' }
 });
