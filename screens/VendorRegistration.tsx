@@ -27,6 +27,96 @@ import { LinearGradient } from 'expo-linear-gradient';
 const CLOUDINARY_CLOUD_NAME = "dgesmp2st"; 
 const CLOUDINARY_UPLOAD_PRESET = "hygieat_preset"; 
 
+// --- TRANSLATIONS ---
+const translations = {
+  en: {
+    welcomeBack: "Welcome Back",
+    vendorReg: "Vendor Registration",
+    loginSubtitle: "Log in to manage your stall",
+    joinSubtitle: "Join Hygieat and grow your business",
+    accountDetails: "Account Details",
+    emailLabel: "EMAIL ADDRESS",
+    emailPlaceholder: "vendor@example.com",
+    passwordLabel: "PASSWORD",
+    passwordPlaceholder: "••••••••",
+    loginBtn: "Log In",
+    stallDetails: "Stall Details",
+    stallNameLabel: "STALL NAME",
+    stallNamePlaceholder: "e.g. Cyber Chaat Wala",
+    descLabel: "DESCRIPTION",
+    descPlaceholder: "Tell us what makes your food special...",
+    coverImageLabel: "COVER IMAGE",
+    uploadCover: "Upload Cover Image",
+    aadhaarLabel: "AADHAAR CARD",
+    uploadAadhaar: "Upload Aadhaar Card",
+    location: "Location",
+    dragMarker: "Long press and drag the marker to pinpoint location.",
+    menu: "Menu",
+    addItem: "Add Item",
+    itemName: "Item Name",
+    price: "Price",
+    createAccount: "Create Account & Stall",
+    noStall: "Don't have a stall yet?",
+    haveAccount: "Already have an account?",
+    registerNew: "Register New Stall",
+    loginLink: "Log In",
+    missingAuth: "Missing Auth Details",
+    missingAuthMsg: "Please enter email and password.",
+    missingFields: "Missing Fields",
+    missingFieldsMsg: "Please fill in name, description, banner, and Aadhaar card.",
+    menuEmpty: "Menu Empty",
+    menuEmptyMsg: "Please add at least one valid menu item.",
+    regFailed: "Registration Failed",
+    loginFailed: "Login Failed",
+    checkingAuth: "Checking authentication...",
+    uploadSubtext: "JPG, PNG (Max 5MB)",
+    govtId: "Government ID Proof"
+  },
+  hi: {
+    welcomeBack: "वापसी पर स्वागत है",
+    vendorReg: "विक्रेता पंजीकरण",
+    loginSubtitle: "अपने स्टॉल का प्रबंधन करने के लिए लॉग इन करें",
+    joinSubtitle: "हाइजीईट से जुड़ें और अपना व्यवसाय बढ़ाएं",
+    accountDetails: "खाता विवरण",
+    emailLabel: "ईमेल पता",
+    emailPlaceholder: "vendor@example.com",
+    passwordLabel: "पासवर्ड",
+    passwordPlaceholder: "••••••••",
+    loginBtn: "लॉग इन करें",
+    stallDetails: "स्टॉल विवरण",
+    stallNameLabel: "स्टॉल का नाम",
+    stallNamePlaceholder: "जैसे: साइबर चाट वाला",
+    descLabel: "विवरण",
+    descPlaceholder: "हमें बताएं कि आपका भोजन क्या खास बनाता है...",
+    coverImageLabel: "कवर छवि",
+    uploadCover: "कवर फोटो अपलोड करें",
+    aadhaarLabel: "आधार कार्ड",
+    uploadAadhaar: "आधार कार्ड अपलोड करें",
+    location: "स्थान",
+    dragMarker: "स्थान इंगित करने के लिए मार्कर को दबाकर खींचें।",
+    menu: "मेन्यू",
+    addItem: "आइटम जोड़ें",
+    itemName: "आइटम का नाम",
+    price: "कीमत",
+    createAccount: "खाता और स्टॉल बनाएं",
+    noStall: "अभी तक स्टॉल नहीं है?",
+    haveAccount: "क्या आपके पास पहले से एक खाता मौजूद है?",
+    registerNew: "नया स्टॉल पंजीकृत करें",
+    loginLink: "लॉग इन करें",
+    missingAuth: "गुम विवरण",
+    missingAuthMsg: "कृपया ईमेल और पासवर्ड दर्ज करें।",
+    missingFields: "खेत गायब हैं",
+    missingFieldsMsg: "कृपया नाम, विवरण, बैनर और आधार कार्ड भरें।",
+    menuEmpty: "मेन्यू खाली है",
+    menuEmptyMsg: "कृपया कम से कम एक मान्य मेनू आइटम जोड़ें।",
+    regFailed: "पंजीकरण विफल",
+    loginFailed: "लॉगिन विफल",
+    checkingAuth: "प्रमाणीकरण की जाँच हो रही है...",
+    uploadSubtext: "JPG, PNG (अधिकतम 5MB)",
+    govtId: "सरकारी आईडी प्रमाण"
+  }
+};
+
 interface MenuItem {
   name: string;
   price: string;
@@ -42,6 +132,10 @@ const INITIAL_REGION = {
 
 export default function VendorRegistration() {
   const navigation = useNavigation();
+
+  // Language State
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+  const t = translations[lang];
 
   // Auth State
   const [initializing, setInitializing] = useState(true);
@@ -150,7 +244,7 @@ export default function VendorRegistration() {
   // --- LOGIN LOGIC ---
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Missing Fields", "Please enter email and password.");
+      Alert.alert(t.missingAuth, t.missingAuthMsg);
       return;
     }
     try {
@@ -159,7 +253,7 @@ export default function VendorRegistration() {
       // The useEffect listener will handle the redirect if login succeeds
     } catch (error: any) {
       setLoading(false);
-      Alert.alert("Login Failed", error.message);
+      Alert.alert(t.loginFailed, error.message);
     }
   };
 
@@ -167,16 +261,16 @@ export default function VendorRegistration() {
   const handleRegister = async () => {
     // 1. Validation
     if (!email || !password) {
-      Alert.alert('Missing Auth Details', 'Please enter email and password.');
+      Alert.alert(t.missingAuth, t.missingAuthMsg);
       return;
     }
     if (!stallName || !description || !bannerImage || !aadhaarImage) {
-      Alert.alert('Missing Fields', 'Please fill in name, description, banner, and Aadhaar card.');
+      Alert.alert(t.missingFields, t.missingFieldsMsg);
       return;
     }
     const validMenu = menuItems.filter(item => item.name && item.price);
     if (validMenu.length === 0) {
-      Alert.alert('Menu Empty', 'Please add at least one valid menu item.');
+      Alert.alert(t.menuEmpty, t.menuEmptyMsg);
       return;
     }
 
@@ -245,7 +339,7 @@ export default function VendorRegistration() {
       
     } catch (error: any) {
       console.error("Registration Error: ", error);
-      Alert.alert('Registration Failed', error.message || 'Could not register stall.');
+      Alert.alert(t.regFailed, error.message || 'Could not register stall.');
     } finally {
       setLoading(false);
     }
@@ -255,7 +349,7 @@ export default function VendorRegistration() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#10B981" />
-        <Text style={styles.loadingText}>Checking authentication...</Text>
+        <Text style={styles.loadingText}>{t.checkingAuth}</Text>
       </View>
     );
   }
@@ -270,22 +364,32 @@ export default function VendorRegistration() {
         
         {/* HEADER */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{isLoginMode ? "Welcome Back" : "Vendor Registration"}</Text>
-          <Text style={styles.headerSubtitle}>
-            {isLoginMode ? "Log in to manage your stall" : "Join Hygieat and grow your business"}
-          </Text>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+            <View style={{flex: 1}}>
+              <Text style={styles.headerTitle}>{isLoginMode ? t.welcomeBack : t.vendorReg}</Text>
+              <Text style={styles.headerSubtitle}>
+                {isLoginMode ? t.loginSubtitle : t.joinSubtitle}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.langButton} 
+              onPress={() => setLang(lang === 'en' ? 'hi' : 'en')}
+            >
+              <Text style={styles.langText}>{lang === 'en' ? 'हिन्दी' : 'English'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* --- AUTH SECTION --- */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeader}>Account Details</Text>
+          <Text style={styles.sectionHeader}>{t.accountDetails}</Text>
           <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+            <Text style={styles.inputLabel}>{t.emailLabel}</Text>
             <View style={styles.inputContainer}>
                 <Ionicons name="mail-outline" size={20} color="#64748b" style={styles.inputIcon} />
                 <TextInput
                 style={styles.textInput}
-                placeholder="vendor@example.com"
+                placeholder={t.emailPlaceholder}
                 placeholderTextColor="#94a3b8"
                 value={email}
                 onChangeText={setEmail}
@@ -295,12 +399,12 @@ export default function VendorRegistration() {
             </View>
           </View>
           <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>PASSWORD</Text>
+            <Text style={styles.inputLabel}>{t.passwordLabel}</Text>
              <View style={styles.inputContainer}>
                 <Ionicons name="lock-closed-outline" size={20} color="#64748b" style={styles.inputIcon} />
                 <TextInput
                 style={styles.textInput}
-                placeholder="••••••••"
+                placeholder={t.passwordPlaceholder}
                 placeholderTextColor="#94a3b8"
                 value={password}
                 onChangeText={setPassword}
@@ -324,7 +428,7 @@ export default function VendorRegistration() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
              >
-              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitBtnText}>Log In</Text>}
+              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitBtnText}>{t.loginBtn}</Text>}
              </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -335,15 +439,15 @@ export default function VendorRegistration() {
           <>
             {/* 1. STALL INFO */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionHeader}>Stall Details</Text>
+              <Text style={styles.sectionHeader}>{t.stallDetails}</Text>
               
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>STALL NAME</Text>
+                <Text style={styles.inputLabel}>{t.stallNameLabel}</Text>
                 <View style={styles.inputContainer}>
                   <Ionicons name="storefront-outline" size={20} color="#64748b" style={styles.inputIcon} />
                     <TextInput
                     style={styles.textInput}
-                    placeholder="e.g. Cyber Chaat Wala"
+                    placeholder={t.stallNamePlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={stallName}
                     onChangeText={setStallName}
@@ -352,11 +456,11 @@ export default function VendorRegistration() {
               </View>
 
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>DESCRIPTION</Text>
+                <Text style={styles.inputLabel}>{t.descLabel}</Text>
                 <View style={[styles.inputContainer, styles.textAreaContainer]}>
                     <TextInput
                     style={[styles.textInput, styles.textArea]}
-                    placeholder="Tell us what makes your food special..."
+                    placeholder={t.descPlaceholder}
                     placeholderTextColor="#94a3b8"
                     multiline
                     numberOfLines={3}
@@ -366,7 +470,7 @@ export default function VendorRegistration() {
                 </View>
               </View>
 
-              <Text style={styles.inputLabel}>COVER IMAGE</Text>
+              <Text style={styles.inputLabel}>{t.coverImageLabel}</Text>
               <TouchableOpacity onPress={() => pickImage('banner')} activeOpacity={0.8}>
                 {bannerImage ? (
                   <View style={styles.imagePreviewContainer}>
@@ -380,15 +484,15 @@ export default function VendorRegistration() {
                     <View style={styles.uploadIconCircle}>
                         <Ionicons name="image-outline" size={28} color="#10B981" />
                     </View>
-                    <Text style={styles.uploadText}>Upload Cover Image</Text>
-                    <Text style={styles.uploadSubtext}>JPG, PNG (Max 5MB)</Text>
+                    <Text style={styles.uploadText}>{t.uploadCover}</Text>
+                    <Text style={styles.uploadSubtext}>{t.uploadSubtext}</Text>
                   </View>
                 )}
               </TouchableOpacity>
 
               {/* NEW AADHAAR UPLOAD */}
               <View style={{ marginTop: 20 }}>
-                <Text style={styles.inputLabel}>AADHAAR CARD</Text>
+                <Text style={styles.inputLabel}>{t.aadhaarLabel}</Text>
                 <TouchableOpacity onPress={() => pickImage('aadhaar')} activeOpacity={0.8}>
                   {aadhaarImage ? (
                     <View style={styles.imagePreviewContainer}>
@@ -402,8 +506,8 @@ export default function VendorRegistration() {
                        <View style={styles.uploadIconCircle}>
                          <Ionicons name="card-outline" size={28} color="#10B981" />
                        </View>
-                      <Text style={styles.uploadText}>Upload Aadhaar Card</Text>
-                       <Text style={styles.uploadSubtext}>Government ID Proof</Text>
+                      <Text style={styles.uploadText}>{t.uploadAadhaar}</Text>
+                       <Text style={styles.uploadSubtext}>{t.govtId}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -413,7 +517,7 @@ export default function VendorRegistration() {
 
             {/* 2. LOCATION */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionHeader}>Location</Text>
+              <Text style={styles.sectionHeader}>{t.location}</Text>
               <View style={styles.mapFrame}>
                 <MapView
                   style={styles.map}
@@ -431,17 +535,17 @@ export default function VendorRegistration() {
                   <Text style={styles.coordText}>{coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}</Text>
                 </View>
               </View>
-              <Text style={styles.helperText}>Long press and drag the marker to pinpoint location.</Text>
+              <Text style={styles.helperText}>{t.dragMarker}</Text>
             </View>
 
             {/* 3. MENU */}
             <View style={styles.sectionContainer}>
               <View style={styles.rowBetween}>
-                <Text style={styles.sectionHeader}>Menu</Text>
+                <Text style={styles.sectionHeader}>{t.menu}</Text>
                 <TouchableOpacity onPress={() => setMenuItems([...menuItems, { name: '', price: '', image: '' }])}>
                   <View style={styles.addMenuBtn}>
                       <Ionicons name="add" size={16} color="#fff" />
-                      <Text style={styles.addMenuText}>Add Item</Text>
+                      <Text style={styles.addMenuText}>{t.addItem}</Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -459,25 +563,25 @@ export default function VendorRegistration() {
                   <View style={styles.menuInputs}>
                     <View style={styles.inputContainerSmall}>
                         <TextInput
-                        placeholder="Item Name"
+                        placeholder={t.itemName}
                         placeholderTextColor="#94a3b8"
                         style={styles.menuInput}
                         value={item.name}
-                        onChangeText={(t) => {
-                            const n = [...menuItems]; n[index].name = t; setMenuItems(n);
+                        onChangeText={(text) => {
+                            const n = [...menuItems]; n[index].name = text; setMenuItems(n);
                         }}
                         />
                     </View>
                     <View style={styles.inputContainerSmall}>
                          <Text style={styles.currencyPrefix}>₹</Text>
                         <TextInput
-                        placeholder="Price"
+                        placeholder={t.price}
                         placeholderTextColor="#94a3b8"
                         keyboardType="numeric"
                         style={styles.menuInput}
                         value={item.price}
-                        onChangeText={(t) => {
-                            const n = [...menuItems]; n[index].price = t; setMenuItems(n);
+                        onChangeText={(text) => {
+                            const n = [...menuItems]; n[index].price = text; setMenuItems(n);
                         }}
                         />
                     </View>
@@ -507,7 +611,7 @@ export default function VendorRegistration() {
                {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitBtnText}>Create Account & Stall</Text>
+                <Text style={styles.submitBtnText}>{t.createAccount}</Text>
               )}
              </LinearGradient>
             </TouchableOpacity>
@@ -517,11 +621,11 @@ export default function VendorRegistration() {
         {/* --- MODE TOGGLE --- */}
         <View style={styles.toggleContainer}>
           <Text style={styles.toggleText}>
-            {isLoginMode ? "Don't have a stall yet?" : "Already have an account?"}
+            {isLoginMode ? t.noStall : t.haveAccount}
           </Text>
           <TouchableOpacity onPress={() => setIsLoginMode(!isLoginMode)}>
             <Text style={styles.toggleBtn}>
-              {isLoginMode ? "Register New Stall" : "Log In"}
+              {isLoginMode ? t.registerNew : t.loginLink}
             </Text>
           </TouchableOpacity>
         </View>
@@ -541,6 +645,21 @@ const styles = StyleSheet.create({
   header: { marginTop: 48, marginBottom: 32 },
   headerTitle: { fontSize: 30, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
   headerSubtitle: { fontSize: 16, color: '#64748b', marginTop: 6, fontWeight: '500' },
+  
+  // Language Button
+  langButton: {
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  langText: {
+    color: '#334155',
+    fontWeight: '700',
+    fontSize: 12,
+  },
 
   sectionContainer: { marginBottom: 36 },
   sectionHeader: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 16, letterSpacing: 0.5 },

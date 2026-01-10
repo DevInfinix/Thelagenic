@@ -28,6 +28,64 @@ import { LinearGradient } from 'expo-linear-gradient';
 const CLOUDINARY_CLOUD_NAME = "dgesmp2st"; 
 const CLOUDINARY_UPLOAD_PRESET = "hygieat_preset"; 
 
+// --- TRANSLATIONS ---
+const translations = {
+  en: {
+    grade: "GRADE",
+    trustRating: "TRUST RATING",
+    location: "LOCATION",
+    verificationTasks: "Verification Tasks",
+    verificationSub: "One-time setup for verified badge.",
+    fssaiCert: "FSSAI Certificate",
+    fssaiSub: "Upload document to verify",
+    fssaiVerified: "Verification Complete",
+    upload: "Upload",
+    dailyTasks: "Daily Tasks",
+    dailySub: "Required to maintain daily hygiene score.",
+    dailyVideo: "Daily Kitchen Live",
+    dailyVideoSub: "Record 30s video of kitchen",
+    dailyVideoUploaded: "Uploaded for today",
+    record: "Record",
+    stallMenu: "Stall Menu",
+    noMenu: "No menu items available.",
+    syncing: "Syncing Dashboard...",
+    uploadFailed: "Upload failed.",
+    success: "Success",
+    fssaiSuccess: "FSSAI Certificate Uploaded!",
+    dailySuccess: "Daily Video Uploaded!",
+    recordFailed: "Recording failed",
+    recording: "Recording...",
+    tapToRecord: "Tap to Record (30s)"
+  },
+  hi: {
+    grade: "ग्रेड",
+    trustRating: "विश्वास रेटिंग",
+    location: "स्थान",
+    verificationTasks: "सत्यापन कार्य",
+    verificationSub: "सत्यापित बैज के लिए एक बार का सेटअप।",
+    fssaiCert: "FSSAI प्रमाण पत्र",
+    fssaiSub: "सत्यापन के लिए दस्तावेज़ अपलोड करें",
+    fssaiVerified: "सत्यापन पूरा हुआ",
+    upload: "अपलोड करें",
+    dailyTasks: "दैनिक कार्य",
+    dailySub: "दैनिक स्वच्छता स्कोर बनाए रखने के लिए आवश्यक।",
+    dailyVideo: "दैनिक रसोई लाइव",
+    dailyVideoSub: "रसोई का 30 सेकंड का वीडियो रिकॉर्ड करें",
+    dailyVideoUploaded: "आज के लिए अपलोड किया गया",
+    record: "रिकॉर्ड करें",
+    stallMenu: "स्टॉल मेनू",
+    noMenu: "कोई मेनू आइटम उपलब्ध नहीं है।",
+    syncing: "डैशबोर्ड सिंक हो रहा है...",
+    uploadFailed: "अपलोड विफल रहा।",
+    success: "सफल",
+    fssaiSuccess: "FSSAI प्रमाणपत्र अपलोड किया गया!",
+    dailySuccess: "दैनिक वीडियो अपलोड किया गया!",
+    recordFailed: "रिकॉर्डिंग विफल रही",
+    recording: "रिकॉर्डिंग...",
+    tapToRecord: "रिकॉर्ड करने के लिए टैप करें (30s)"
+  }
+};
+
 // TYPES
 interface VendorData {
   name: string;
@@ -92,6 +150,8 @@ export default function VendorDashboard({ route, navigation }: any) {
   // UI State
   const [menuOpen, setMenuOpen] = useState(true); // Open by default for better UX
   const [uploadingTask, setUploadingTask] = useState<string | null>(null);
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+  const t = translations[lang];
 
   // Camera State
   const [showCamera, setShowCamera] = useState(false);
@@ -155,9 +215,9 @@ export default function VendorDashboard({ route, navigation }: any) {
         await updateDoc(doc(db, 'vendors', vendorId), { fssaiUrl: url });
         // Update Local State
         setVendor(prev => prev ? { ...prev, fssaiUrl: url } : null);
-        Alert.alert("Success", "FSSAI Certificate Uploaded!");
+        Alert.alert(t.success, t.fssaiSuccess);
       } catch (e) {
-        Alert.alert("Error", "Upload failed.");
+        Alert.alert("Error", t.uploadFailed);
       } finally {
         setUploadingTask(null);
       }
@@ -180,7 +240,7 @@ export default function VendorDashboard({ route, navigation }: any) {
       }
     } catch (e) {
       console.log(e);
-      Alert.alert("Error", "Recording failed");
+      Alert.alert("Error", t.recordFailed);
     } finally {
       setIsRecording(false);
       setShowCamera(false);
@@ -193,9 +253,9 @@ export default function VendorDashboard({ route, navigation }: any) {
       const url = await uploadToCloudinary(uri, 'video');
       await updateDoc(doc(db, 'vendors', vendorId), { dailyVideoUrl: url });
       setVendor(prev => prev ? { ...prev, dailyVideoUrl: url } : null);
-      Alert.alert("Success", "Daily Video Uploaded!");
+      Alert.alert(t.success, t.dailySuccess);
     } catch (e) {
-      Alert.alert("Error", "Video upload failed.");
+      Alert.alert("Error", t.uploadFailed);
     } finally {
       setUploadingTask(null);
     }
@@ -225,7 +285,7 @@ export default function VendorDashboard({ route, navigation }: any) {
               >
                 <View style={[styles.recordBtnInner, isRecording ? styles.stopSquare : styles.recordCircle]} />
               </TouchableOpacity>
-              <Text style={styles.recordText}>{isRecording ? "Recording..." : "Tap to Record (30s)"}</Text>
+              <Text style={styles.recordText}>{isRecording ? t.recording : t.tapToRecord}</Text>
             </View>
           </View>
         </CameraView>
@@ -236,7 +296,7 @@ export default function VendorDashboard({ route, navigation }: any) {
   if (loading || !vendor) return (
     <View style={styles.centerContainer}>
       <ActivityIndicator size="large" color="#10B981" />
-      <Text style={styles.loadingText}>Syncing Dashboard...</Text>
+      <Text style={styles.loadingText}>{t.syncing}</Text>
     </View>
   );
 
@@ -258,6 +318,13 @@ export default function VendorDashboard({ route, navigation }: any) {
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.langButton} 
+            onPress={() => setLang(lang === 'en' ? 'hi' : 'en')}
+          >
+            <Text style={styles.langText}>{lang === 'en' ? 'हिन्दी' : 'English'}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.mainContent}>
@@ -269,7 +336,7 @@ export default function VendorDashboard({ route, navigation }: any) {
                 <Text style={styles.stallDesc} numberOfLines={2}>{vendor.description}</Text>
               </View>
               <View style={styles.hygieneBadge}>
-                <Text style={styles.gradeLabel}>GRADE</Text>
+                <Text style={styles.gradeLabel}>{t.grade}</Text>
                 <Text style={styles.gradeValue}>{vendor.hygieneGrade}</Text>
               </View>
             </View>
@@ -278,11 +345,11 @@ export default function VendorDashboard({ route, navigation }: any) {
             
             <View style={styles.statsRow}>
               <View style={styles.statCol}>
-                <Text style={styles.statLabel}>TRUST RATING</Text>
+                <Text style={styles.statLabel}>{t.trustRating}</Text>
                 <ModernSpeedometer rating={vendor.rating} />
               </View>
               <View style={styles.locationCol}>
-                 <Text style={styles.statLabel}>LOCATION</Text>
+                 <Text style={styles.statLabel}>{t.location}</Text>
                  <View style={styles.locBox}>
                    <Ionicons name="location" size={16} color="#10B981" />
                    <Text style={styles.locText}>{vendor.lat.toFixed(4)}</Text>
@@ -297,8 +364,8 @@ export default function VendorDashboard({ route, navigation }: any) {
 
           {/* --- SECTION: GENERAL TASKS --- */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Verification Tasks</Text>
-            <Text style={styles.sectionSub}>One-time setup for verified badge.</Text>
+            <Text style={styles.sectionTitle}>{t.verificationTasks}</Text>
+            <Text style={styles.sectionSub}>{t.verificationSub}</Text>
 
              {/* FSSAI Card */}
              <View style={[styles.taskCard, vendor.fssaiUrl && styles.taskComplete]}>
@@ -306,8 +373,8 @@ export default function VendorDashboard({ route, navigation }: any) {
                 <Ionicons name={vendor.fssaiUrl ? "shield-checkmark" : "document-text-outline"} size={24} color={vendor.fssaiUrl ? "#059669" : "#64748b"} />
               </View>
               <View style={styles.taskContent}>
-                <Text style={[styles.taskTitle, vendor.fssaiUrl && styles.textComplete]}>FSSAI Certificate</Text>
-                <Text style={[styles.taskDesc, vendor.fssaiUrl && styles.textCompleteSub]}>{vendor.fssaiUrl ? "Verification Complete" : "Upload document to verify"}</Text>
+                <Text style={[styles.taskTitle, vendor.fssaiUrl && styles.textComplete]}>{t.fssaiCert}</Text>
+                <Text style={[styles.taskDesc, vendor.fssaiUrl && styles.textCompleteSub]}>{vendor.fssaiUrl ? t.fssaiVerified : t.fssaiSub}</Text>
               </View>
               {!vendor.fssaiUrl && (
                 <TouchableOpacity onPress={handleUploadFSSAI} disabled={!!uploadingTask}>
@@ -315,7 +382,7 @@ export default function VendorDashboard({ route, navigation }: any) {
                     colors={['#10B981', '#059669']}
                     style={styles.actionBtn}
                   >
-                     {uploadingTask === 'fssai' ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.actionBtnText}>Upload</Text>}
+                     {uploadingTask === 'fssai' ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.actionBtnText}>{t.upload}</Text>}
                   </LinearGradient>
                 </TouchableOpacity>
               )}
@@ -324,8 +391,8 @@ export default function VendorDashboard({ route, navigation }: any) {
 
           {/* --- SECTION: DAILY TASKS --- */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Daily Tasks</Text>
-            <Text style={styles.sectionSub}>Required to maintain daily hygiene score.</Text>
+            <Text style={styles.sectionTitle}>{t.dailyTasks}</Text>
+            <Text style={styles.sectionSub}>{t.dailySub}</Text>
             
             {/* Daily Video Card */}
             <View style={[styles.taskCard, vendor.dailyVideoUrl && styles.taskComplete]}>
@@ -333,8 +400,8 @@ export default function VendorDashboard({ route, navigation }: any) {
                 <Ionicons name={vendor.dailyVideoUrl ? "videocam" : "videocam-outline"} size={24} color={vendor.dailyVideoUrl ? "#059669" : "#64748b"} />
               </View>
               <View style={styles.taskContent}>
-                <Text style={[styles.taskTitle, vendor.dailyVideoUrl && styles.textComplete]}>Daily Kitchen Live</Text>
-                <Text style={[styles.taskDesc, vendor.dailyVideoUrl && styles.textCompleteSub]}>{vendor.dailyVideoUrl ? "Uploaded for today" : "Record 30s video of kitchen"}</Text>
+                <Text style={[styles.taskTitle, vendor.dailyVideoUrl && styles.textComplete]}>{t.dailyVideo}</Text>
+                <Text style={[styles.taskDesc, vendor.dailyVideoUrl && styles.textCompleteSub]}>{vendor.dailyVideoUrl ? t.dailyVideoUploaded : t.dailyVideoSub}</Text>
               </View>
               {!vendor.dailyVideoUrl && (
                 <TouchableOpacity onPress={() => setShowCamera(true)} disabled={!!uploadingTask}>
@@ -342,7 +409,7 @@ export default function VendorDashboard({ route, navigation }: any) {
                     colors={['#EF4444', '#DC2626']} // Red gradient for recording
                     style={styles.actionBtn}
                   >
-                    {uploadingTask === 'video' ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.actionBtnText}>Record</Text>}
+                    {uploadingTask === 'video' ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.actionBtnText}>{t.record}</Text>}
                   </LinearGradient>
                 </TouchableOpacity>
               )}
@@ -360,7 +427,7 @@ export default function VendorDashboard({ route, navigation }: any) {
                 <View style={styles.menuIconBadge}>
                     <Ionicons name="fast-food-outline" size={20} color="#10B981" />
                 </View>
-                <Text style={styles.dropdownTitle}>Stall Menu ({vendor.menu?.length || 0})</Text>
+                <Text style={styles.dropdownTitle}>{t.stallMenu} ({vendor.menu?.length || 0})</Text>
               </View>
               <Ionicons name={menuOpen ? "chevron-up" : "chevron-down"} size={24} color="#64748b" />
             </TouchableOpacity>
@@ -378,7 +445,7 @@ export default function VendorDashboard({ route, navigation }: any) {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyText}>No menu items available.</Text>
+                  <Text style={styles.emptyText}>{t.noMenu}</Text>
                 )}
               </View>
             )}
@@ -403,6 +470,8 @@ const styles = StyleSheet.create({
   heroImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   heroGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 100 },
   backButton: { position: 'absolute', top: 50, left: 20, backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 20 },
+  langButton: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(255,255,255,0.9)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
+  langText: { color: '#334155', fontWeight: '700', fontSize: 12 },
 
   // Main Content
   mainContent: { marginTop: -60, paddingHorizontal: 20 },
