@@ -19,9 +19,9 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthState
 import * as ImagePicker from 'expo-image-picker'; 
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy'; 
-// Import the initialized auth instance directly from the config file
 import { db, auth } from '../config/firebase'; 
 import { Ionicons } from '@expo/vector-icons'; 
+import { LinearGradient } from 'expo-linear-gradient';
 
 // CONFIGURATION
 const CLOUDINARY_CLOUD_NAME = "dgesmp2st"; 
@@ -42,7 +42,6 @@ const INITIAL_REGION = {
 
 export default function VendorRegistration() {
   const navigation = useNavigation();
-  // Removed local getAuth() call, using imported auth instance
 
   // Auth State
   const [initializing, setInitializing] = useState(true);
@@ -67,7 +66,6 @@ export default function VendorRegistration() {
 
   // --- 1. AUTH CHECK ON MOUNT ---
   useEffect(() => {
-    // Use the imported 'auth' instance here
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // User is logged in, check if they have a vendor profile
@@ -157,7 +155,6 @@ export default function VendorRegistration() {
     }
     try {
       setLoading(true);
-      // Use imported 'auth' instance
       await signInWithEmailAndPassword(auth, email, password);
       // The useEffect listener will handle the redirect if login succeeds
     } catch (error: any) {
@@ -186,7 +183,7 @@ export default function VendorRegistration() {
     try {
       setLoading(true);
 
-      // 2. Create Auth User - Use imported 'auth' instance
+      // 2. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -257,7 +254,7 @@ export default function VendorRegistration() {
   if (initializing) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00E096" />
+        <ActivityIndicator size="large" color="#10B981" />
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
@@ -268,12 +265,12 @@ export default function VendorRegistration() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* HEADER */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{isLoginMode ? "Welcome Back" : "Partner Registration"}</Text>
+          <Text style={styles.headerTitle}>{isLoginMode ? "Welcome Back" : "Vendor Registration"}</Text>
           <Text style={styles.headerSubtitle}>
             {isLoginMode ? "Log in to manage your stall" : "Join Hygieat and grow your business"}
           </Text>
@@ -284,26 +281,32 @@ export default function VendorRegistration() {
           <Text style={styles.sectionHeader}>Account Details</Text>
           <View style={styles.inputWrapper}>
             <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="vendor@example.com"
-              placeholderTextColor="#4B5563"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+            <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                <TextInput
+                style={styles.textInput}
+                placeholder="vendor@example.com"
+                placeholderTextColor="#94a3b8"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                />
+            </View>
           </View>
           <View style={styles.inputWrapper}>
             <Text style={styles.inputLabel}>PASSWORD</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="••••••••"
-              placeholderTextColor="#4B5563"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+             <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                <TextInput
+                style={styles.textInput}
+                placeholder="••••••••"
+                placeholderTextColor="#94a3b8"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                />
+            </View>
           </View>
         </View>
 
@@ -311,11 +314,18 @@ export default function VendorRegistration() {
         {isLoginMode && (
           <View>
             <TouchableOpacity 
-              style={[styles.submitBtn, loading && styles.disabledBtn]} 
+              activeOpacity={0.8}
               onPress={handleLogin}
               disabled={loading}
             >
-              {loading ? <ActivityIndicator color="#0B0F19" /> : <Text style={styles.submitBtnText}>Log In</Text>}
+             <LinearGradient
+                colors={['#10B981', '#059669']}
+                style={[styles.submitBtn, loading && styles.disabledBtn]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+             >
+              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitBtnText}>Log In</Text>}
+             </LinearGradient>
             </TouchableOpacity>
           </View>
         )}
@@ -329,50 +339,71 @@ export default function VendorRegistration() {
               
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>STALL NAME</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Cyber Chaat Wala"
-                  placeholderTextColor="#4B5563"
-                  value={stallName}
-                  onChangeText={setStallName}
-                />
+                <View style={styles.inputContainer}>
+                  <Ionicons name="storefront-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Cyber Chaat Wala"
+                    placeholderTextColor="#94a3b8"
+                    value={stallName}
+                    onChangeText={setStallName}
+                    />
+                </View>
               </View>
 
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>DESCRIPTION</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  placeholder="Tell us what makes your food special..."
-                  placeholderTextColor="#4B5563"
-                  multiline
-                  numberOfLines={3}
-                  value={description}
-                  onChangeText={setDescription}
-                />
+                <View style={[styles.inputContainer, styles.textAreaContainer]}>
+                    <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    placeholder="Tell us what makes your food special..."
+                    placeholderTextColor="#94a3b8"
+                    multiline
+                    numberOfLines={3}
+                    value={description}
+                    onChangeText={setDescription}
+                    />
+                </View>
               </View>
 
               <Text style={styles.inputLabel}>COVER IMAGE</Text>
               <TouchableOpacity onPress={() => pickImage('banner')} activeOpacity={0.8}>
                 {bannerImage ? (
-                  <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
+                    <View style={styles.editIconBadge}>
+                        <Ionicons name="camera" size={16} color="#fff" />
+                    </View>
+                  </View>
                 ) : (
                   <View style={styles.uploadPlaceholder}>
-                    <Ionicons name="image-outline" size={32} color="#00E096" />
+                    <View style={styles.uploadIconCircle}>
+                        <Ionicons name="image-outline" size={28} color="#10B981" />
+                    </View>
                     <Text style={styles.uploadText}>Upload Cover Image</Text>
+                    <Text style={styles.uploadSubtext}>JPG, PNG (Max 5MB)</Text>
                   </View>
                 )}
               </TouchableOpacity>
 
               {/* NEW AADHAAR UPLOAD */}
-              <View style={{ marginTop: 16 }}>
+              <View style={{ marginTop: 20 }}>
                 <Text style={styles.inputLabel}>AADHAAR CARD</Text>
                 <TouchableOpacity onPress={() => pickImage('aadhaar')} activeOpacity={0.8}>
                   {aadhaarImage ? (
-                    <Image source={{ uri: aadhaarImage }} style={styles.bannerPreview} />
+                    <View style={styles.imagePreviewContainer}>
+                        <Image source={{ uri: aadhaarImage }} style={styles.bannerPreview} />
+                        <View style={styles.editIconBadge}>
+                            <Ionicons name="create-outline" size={16} color="#fff" />
+                        </View>
+                    </View>
                   ) : (
                     <View style={styles.uploadPlaceholder}>
-                      <Ionicons name="card-outline" size={32} color="#00E096" />
+                       <View style={styles.uploadIconCircle}>
+                         <Ionicons name="card-outline" size={28} color="#10B981" />
+                       </View>
                       <Text style={styles.uploadText}>Upload Aadhaar Card</Text>
+                       <Text style={styles.uploadSubtext}>Government ID Proof</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -387,16 +418,16 @@ export default function VendorRegistration() {
                 <MapView
                   style={styles.map}
                   initialRegion={INITIAL_REGION}
-                  customMapStyle={darkMapStyle} 
                 >
                   <Marker
                     draggable
                     coordinate={coordinates}
                     onDragEnd={(e) => setCoordinates(e.nativeEvent.coordinate)}
-                    pinColor="#00E096"
+                    pinColor="#10B981"
                   />
                 </MapView>
                 <View style={styles.coordsOverlay}>
+                  <Ionicons name="location" size={12} color="#10B981" style={{ marginRight: 4 }} />
                   <Text style={styles.coordText}>{coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}</Text>
                 </View>
               </View>
@@ -408,7 +439,10 @@ export default function VendorRegistration() {
               <View style={styles.rowBetween}>
                 <Text style={styles.sectionHeader}>Menu</Text>
                 <TouchableOpacity onPress={() => setMenuItems([...menuItems, { name: '', price: '', image: '' }])}>
-                  <Text style={styles.addMenuText}>+ Add Item</Text>
+                  <View style={styles.addMenuBtn}>
+                      <Ionicons name="add" size={16} color="#fff" />
+                      <Text style={styles.addMenuText}>Add Item</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
 
@@ -418,35 +452,40 @@ export default function VendorRegistration() {
                     {item.image ? (
                       <Image source={{ uri: item.image }} style={styles.menuImg} />
                     ) : (
-                      <Ionicons name="camera" size={20} color="#6B7280" />
+                      <Ionicons name="camera-outline" size={24} color="#94a3b8" />
                     )}
                   </TouchableOpacity>
                   
                   <View style={styles.menuInputs}>
-                    <TextInput
-                      placeholder="Item Name"
-                      placeholderTextColor="#4B5563"
-                      style={styles.menuInput}
-                      value={item.name}
-                      onChangeText={(t) => {
-                        const n = [...menuItems]; n[index].name = t; setMenuItems(n);
-                      }}
-                    />
-                    <TextInput
-                      placeholder="Price (₹)"
-                      placeholderTextColor="#4B5563"
-                      keyboardType="numeric"
-                      style={styles.menuInput}
-                      value={item.price}
-                      onChangeText={(t) => {
-                        const n = [...menuItems]; n[index].price = t; setMenuItems(n);
-                      }}
-                    />
+                    <View style={styles.inputContainerSmall}>
+                        <TextInput
+                        placeholder="Item Name"
+                        placeholderTextColor="#94a3b8"
+                        style={styles.menuInput}
+                        value={item.name}
+                        onChangeText={(t) => {
+                            const n = [...menuItems]; n[index].name = t; setMenuItems(n);
+                        }}
+                        />
+                    </View>
+                    <View style={styles.inputContainerSmall}>
+                         <Text style={styles.currencyPrefix}>₹</Text>
+                        <TextInput
+                        placeholder="Price"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="numeric"
+                        style={styles.menuInput}
+                        value={item.price}
+                        onChangeText={(t) => {
+                            const n = [...menuItems]; n[index].price = t; setMenuItems(n);
+                        }}
+                        />
+                    </View>
                   </View>
                   
                   {index > 0 && (
-                    <TouchableOpacity onPress={() => setMenuItems(menuItems.filter((_, i) => i !== index))}>
-                      <Ionicons name="close-circle" size={24} color="#EF4444" />
+                    <TouchableOpacity onPress={() => setMenuItems(menuItems.filter((_, i) => i !== index))} style={styles.removeMenuBtn}>
+                      <Ionicons name="trash-outline" size={20} color="#EF4444" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -455,15 +494,22 @@ export default function VendorRegistration() {
 
             {/* REGISTER BUTTON */}
             <TouchableOpacity 
-              style={[styles.submitBtn, loading && styles.disabledBtn]} 
+              activeOpacity={0.8}
               onPress={handleRegister}
               disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color="#0B0F19" />
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                style={[styles.submitBtn, loading && styles.disabledBtn]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+               {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitBtnText}>Create Account & Stall 🚀</Text>
+                <Text style={styles.submitBtnText}>Create Account & Stall</Text>
               )}
+             </LinearGradient>
             </TouchableOpacity>
           </>
         )}
@@ -485,108 +531,170 @@ export default function VendorRegistration() {
   );
 }
 
-// Minimal Dark Map Style
-const darkMapStyle = [
-  { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
-  { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
-  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
-  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
-  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] }
-];
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0F19' },
-  scrollContent: { padding: 20, paddingBottom: 60 },
-  centerContainer: { flex: 1, backgroundColor: '#0B0F19', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#00E096', marginTop: 10 },
+  // THEME: Clean Light Modern
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  scrollContent: { padding: 24, paddingBottom: 60 },
+  centerContainer: { flex: 1, backgroundColor: '#f8fafc', justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: '#10B981', marginTop: 12, fontWeight: '600' },
   
-  header: { marginTop: 40, marginBottom: 30 },
-  headerTitle: { fontSize: 32, fontWeight: '800', color: '#FFF', letterSpacing: 0.5 },
-  headerSubtitle: { fontSize: 16, color: '#9CA3AF', marginTop: 5 },
+  header: { marginTop: 48, marginBottom: 32 },
+  headerTitle: { fontSize: 30, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 16, color: '#64748b', marginTop: 6, fontWeight: '500' },
 
-  sectionContainer: { marginBottom: 32 },
-  sectionHeader: { fontSize: 18, fontWeight: '700', color: '#00E096', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
-  helperText: { color: '#6B7280', fontSize: 12, marginTop: 8 },
+  sectionContainer: { marginBottom: 36 },
+  sectionHeader: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 16, letterSpacing: 0.5 },
+  helperText: { color: '#64748b', fontSize: 13, marginTop: 10, fontStyle: 'italic' },
 
-  inputWrapper: { marginBottom: 16 },
-  inputLabel: { color: '#9CA3AF', fontSize: 11, fontWeight: '700', marginBottom: 8, letterSpacing: 0.5 },
-  textInput: {
-    backgroundColor: '#1F2937',
+  inputWrapper: { marginBottom: 20 },
+  inputLabel: { color: '#475569', fontSize: 12, fontWeight: '700', marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase' },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 16,
-    color: '#FFF',
-    fontSize: 16,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
+  inputIcon: { marginRight: 8 },
+  textInput: {
+    flex: 1,
+    paddingVertical: 14,
+    color: '#1e293b',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  textAreaContainer: { alignItems: 'flex-start', paddingVertical: 8 },
   textArea: { height: 100, textAlignVertical: 'top' },
 
   // Upload Styles
   uploadPlaceholder: {
-    height: 160,
-    backgroundColor: 'rgba(0, 224, 150, 0.1)',
+    height: 180,
+    backgroundColor: '#f1f5f9',
     borderWidth: 2,
-    borderColor: '#00E096',
+    borderColor: '#e2e8f0',
     borderStyle: 'dashed',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  uploadText: { color: '#00E096', fontWeight: '600', marginTop: 8 },
-  bannerPreview: { width: '100%', height: 160, borderRadius: 16 },
+  uploadIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#d1fae5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  uploadText: { color: '#10B981', fontWeight: '700', fontSize: 15 },
+  uploadSubtext: { color: '#94a3b8', fontSize: 12, marginTop: 4 },
+  
+  imagePreviewContainer: {
+    position: 'relative',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  bannerPreview: { width: '100%', height: 180, resizeMode: 'cover' },
+  editIconBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
+  },
 
   // Map
-  mapFrame: { height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#374151' },
+  mapFrame: { 
+    height: 220, 
+    borderRadius: 16, 
+    overflow: 'hidden', 
+    borderWidth: 1, 
+    borderColor: '#e2e8f0',
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.05, 
+    shadowRadius: 4, 
+    elevation: 3 
+  },
   map: { flex: 1 },
   coordsOverlay: {
-    position: 'absolute', bottom: 10, left: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)', padding: 6, borderRadius: 6
+    position: 'absolute', bottom: 12, left: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center',
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2
   },
-  coordText: { color: '#00E096', fontSize: 10, fontWeight: 'bold', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  coordText: { color: '#334155', fontSize: 11, fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
 
   // Menu
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  addMenuText: { color: '#00E096', fontWeight: 'bold' },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  addMenuBtn: { 
+      flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', 
+      paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20,
+      shadowColor: "#10B981", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3
+  },
+  addMenuText: { color: '#fff', fontWeight: '700', fontSize: 13, marginLeft: 4 },
+  
   menuCard: {
     flexDirection: 'row',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#ffffff',
     padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 16,
     alignItems: 'center',
-    gap: 12
+    gap: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 2
   },
   menuImgPicker: {
-    width: 60, height: 60, borderRadius: 8,
-    backgroundColor: '#111827', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: '#374151'
+    width: 70, height: 70, borderRadius: 12,
+    backgroundColor: '#f8fafc', justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: '#e2e8f0'
   },
-  menuImg: { width: '100%', height: '100%', borderRadius: 8 },
-  menuInputs: { flex: 1, gap: 8 },
+  menuImg: { width: '100%', height: '100%', borderRadius: 12 },
+  menuInputs: { flex: 1, gap: 10 },
+  inputContainerSmall: {
+     flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', 
+     borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 10 
+  },
+  currencyPrefix: { color: '#64748b', fontWeight: '600', marginRight: 4 },
   menuInput: {
-    backgroundColor: '#111827', color: '#FFF',
-    padding: 8, borderRadius: 6, fontSize: 14,
-    borderWidth: 1, borderColor: '#374151'
+    flex: 1, color: '#1e293b', paddingVertical: 8, fontSize: 14, fontWeight: '500'
   },
+  removeMenuBtn: { padding: 8, backgroundColor: '#fef2f2', borderRadius: 8 },
 
   // Submit
   submitBtn: {
-    backgroundColor: '#00E096',
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
     marginTop: 10,
-    shadowColor: "#00E096",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  disabledBtn: { backgroundColor: '#4B5563', shadowOpacity: 0 },
-  submitBtnText: { color: '#0B0F19', fontWeight: '800', fontSize: 18, textTransform: 'uppercase' },
+  disabledBtn: { opacity: 0.7 },
+  submitBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 },
 
   // Toggle
-  toggleContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 30, marginBottom: 20 },
-  toggleText: { color: '#9CA3AF', marginRight: 5 },
-  toggleBtn: { color: '#00E096', fontWeight: 'bold' }
+  toggleContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 36, marginBottom: 24 },
+  toggleText: { color: '#64748b', marginRight: 6, fontSize: 15 },
+  toggleBtn: { color: '#10B981', fontWeight: '700', fontSize: 15 }
 });
