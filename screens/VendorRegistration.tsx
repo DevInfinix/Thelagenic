@@ -11,10 +11,11 @@ import {
   Platform,
   StyleSheet,
   Image,
-  StatusBar
+  StatusBar,
+  Switch
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, setDoc, doc, query, where, getDocs } from 'firebase/firestore'; // Changed addDoc to setDoc
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker'; 
 import { useNavigation, CommonActions } from '@react-navigation/native';
@@ -41,12 +42,22 @@ const translations = {
     passwordPlaceholder: "••••••••",
     loginBtn: "Log In",
     stallDetails: "Stall Details",
-    stallNameLabel: "STALL NAME",
+    stallNameLabel: "SHOP NAME",
     stallNamePlaceholder: "e.g. Cyber Chaat Wala",
+    ownerNameLabel: "OWNER NAME",
+    ownerNamePlaceholder: "e.g. Rahul Kumar",
+    phoneLabel: "PHONE NUMBER",
+    phonePlaceholder: "e.g. 9876543210",
+    addressLabel: "FULL ADDRESS",
+    addressPlaceholder: "Shop No, Street, Area",
+    cityLabel: "CITY",
+    cityPlaceholder: "e.g. Mumbai",
     descLabel: "DESCRIPTION",
     descPlaceholder: "Tell us what makes your food special...",
-    coverImageLabel: "COVER IMAGE",
-    uploadCover: "Upload Cover Image",
+    coverImageLabel: "SHOP BANNER",
+    stallPhotoLabel: "STALL PHOTO",
+    uploadCover: "Upload Shop Banner",
+    uploadStallPhoto: "Upload Stall Photo",
     aadhaarLabel: "AADHAAR CARD",
     uploadAadhaar: "Upload Aadhaar Card",
     location: "Location",
@@ -54,7 +65,9 @@ const translations = {
     menu: "Menu",
     addItem: "Add Item",
     itemName: "Item Name",
+    itemDesc: "Item Description",
     price: "Price",
+    veg: "Veg",
     createAccount: "Create Account & Stall",
     noStall: "Don't have a stall yet?",
     haveAccount: "Already have an account?",
@@ -63,14 +76,23 @@ const translations = {
     missingAuth: "Missing Auth Details",
     missingAuthMsg: "Please enter email and password.",
     missingFields: "Missing Fields",
-    missingFieldsMsg: "Please fill in name, description, banner, and Aadhaar card.",
+    missingFieldsMsg: "Please fill in all required fields.",
     menuEmpty: "Menu Empty",
     menuEmptyMsg: "Please add at least one valid menu item.",
     regFailed: "Registration Failed",
     loginFailed: "Login Failed",
     checkingAuth: "Checking authentication...",
     uploadSubtext: "JPG, PNG (Max 5MB)",
-    govtId: "Government ID Proof"
+    govtId: "Government ID Proof",
+    priceRangeLabel: "PRICE RANGE",
+    dietaryLabel: "DIETARY OPTIONS",
+    vendorAgeLabel: "AGE",
+    vendorAgePlaceholder: "e.g. 30",
+    vendorGenderLabel: "GENDER",
+    vendorQualificationLabel: "QUALIFICATION",
+    vendorQualificationPlaceholder: "e.g. Graduate",
+    vendorSelfieLabel: "VENDOR SELFIE",
+    uploadSelfie: "Upload Selfie"
   },
   hi: {
     welcomeBack: "वापसी पर स्वागत है",
@@ -84,12 +106,22 @@ const translations = {
     passwordPlaceholder: "••••••••",
     loginBtn: "लॉग इन करें",
     stallDetails: "स्टॉल विवरण",
-    stallNameLabel: "स्टॉल का नाम",
+    stallNameLabel: "दुकान का नाम",
     stallNamePlaceholder: "जैसे: साइबर चाट वाला",
+    ownerNameLabel: "मालिक का नाम",
+    ownerNamePlaceholder: "जैसे: राहुल कुमार",
+    phoneLabel: "फ़ोन नंबर",
+    phonePlaceholder: "जैसे: 9876543210",
+    addressLabel: "पूरा पता",
+    addressPlaceholder: "दुकान नंबर, गली, क्षेत्र",
+    cityLabel: "शहर",
+    cityPlaceholder: "जैसे: मुंबई",
     descLabel: "विवरण",
     descPlaceholder: "हमें बताएं कि आपका भोजन क्या खास बनाता है...",
-    coverImageLabel: "कवर छवि",
-    uploadCover: "कवर फोटो अपलोड करें",
+    coverImageLabel: "दुकान का बैनर",
+    stallPhotoLabel: "स्टॉल फोटो",
+    uploadCover: "बैनर अपलोड करें",
+    uploadStallPhoto: "स्टॉल फोटो अपलोड करें",
     aadhaarLabel: "आधार कार्ड",
     uploadAadhaar: "आधार कार्ड अपलोड करें",
     location: "स्थान",
@@ -97,7 +129,9 @@ const translations = {
     menu: "मेन्यू",
     addItem: "आइटम जोड़ें",
     itemName: "आइटम का नाम",
+    itemDesc: "आइटम विवरण",
     price: "कीमत",
+    veg: "शाकाहारी",
     createAccount: "खाता और स्टॉल बनाएं",
     noStall: "अभी तक स्टॉल नहीं है?",
     haveAccount: "क्या आपके पास पहले से एक खाता मौजूद है?",
@@ -106,20 +140,31 @@ const translations = {
     missingAuth: "गुम विवरण",
     missingAuthMsg: "कृपया ईमेल और पासवर्ड दर्ज करें।",
     missingFields: "खेत गायब हैं",
-    missingFieldsMsg: "कृपया नाम, विवरण, बैनर और आधार कार्ड भरें।",
+    missingFieldsMsg: "कृपया सभी आवश्यक फ़ील्ड भरें।",
     menuEmpty: "मेन्यू खाली है",
     menuEmptyMsg: "कृपया कम से कम एक मान्य मेनू आइटम जोड़ें।",
     regFailed: "पंजीकरण विफल",
     loginFailed: "लॉगिन विफल",
     checkingAuth: "प्रमाणीकरण की जाँच हो रही है...",
     uploadSubtext: "JPG, PNG (अधिकतम 5MB)",
-    govtId: "सरकारी आईडी प्रमाण"
+    govtId: "सरकारी आईडी प्रमाण",
+    priceRangeLabel: "मूल्य सीमा",
+    dietaryLabel: "आहार विकल्प",
+    vendorAgeLabel: "आयु",
+    vendorAgePlaceholder: "जैसे: 30",
+    vendorGenderLabel: "लिंग",
+    vendorQualificationLabel: "योग्यता",
+    vendorQualificationPlaceholder: "जैसे: स्नातक",
+    vendorSelfieLabel: "विक्रेता सेल्फी",
+    uploadSelfie: "सेल्फी अपलोड करें"
   }
 };
 
 interface MenuItem {
   name: string;
   price: string;
+  description: string;
+  isVegetarian: boolean;
   image: string; 
 }
 
@@ -139,38 +184,56 @@ export default function VendorRegistration() {
 
   // Auth State
   const [initializing, setInitializing] = useState(true);
-  const [isLoginMode, setIsLoginMode] = useState(false); // Toggle between Login & Register
+  const [isLoginMode, setIsLoginMode] = useState(false); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   // Stall Form State
   const [loading, setLoading] = useState(false);
-  const [stallName, setStallName] = useState('');
-  const [description, setDescription] = useState('');
-  const [bannerImage, setBannerImage] = useState<string | null>(null); 
-  const [aadhaarImage, setAadhaarImage] = useState<string | null>(null); // New Aadhaar State
   
+  // Fields mapped to Firestore
+  const [shopName, setShopName] = useState(''); // shopName
+  const [ownerName, setOwnerName] = useState(''); // ownerName
+  const [phone, setPhone] = useState(''); // phone
+  const [address, setAddress] = useState(''); // address
+  const [parentCity, setCity] = useState(''); // city
+  const [description, setDescription] = useState(''); // description
+  const [priceRange, setPriceRange] = useState('₹'); // priceRange
+  
+  // New Fields
+  const [vendorAge, setVendorAge] = useState('');
+  const [vendorGender, setVendorGender] = useState('Male'); // Default
+  const [vendorQualification, setVendorQualification] = useState('');
+  const [vendorSelfie, setVendorSelfie] = useState<string | null>(null);
+
+  // Images
+  const [shopBannerUrl, setShopBannerUrl] = useState<string | null>(null); // shopBannerUrl
+  const [stallPhoto, setStallPhoto] = useState<string | null>(null); // stallPhoto
+  const [aadhaarCardUrl, setAadhaarCardUrl] = useState<string | null>(null); // aadharCardUrl
+  
+  // Location
   const [coordinates, setCoordinates] = useState({
     latitude: 19.0760,
     longitude: 72.8777,
   });
+
+  // Options
+  const [dietaryDetails, setDietaryDetails] = useState<string[]>(['vegetarian']); // Renamed from dietaryOptions
+
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
-    { name: '', price: '', image: '' }
+    { name: '', price: '', description: '', isVegetarian: true, image: '' }
   ]);
 
   // --- 1. AUTH CHECK ON MOUNT ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is logged in, check if they have a vendor profile
         try {
           const q = query(collection(db, 'vendors'), where('email', '==', user.email));
           const snapshot = await getDocs(q);
           
           if (!snapshot.empty) {
-            // Vendor found, redirect to dashboard
             const vendorId = snapshot.docs[0].id;
-            
             navigation.dispatch(
               CommonActions.reset({
                 index: 0,
@@ -188,8 +251,17 @@ export default function VendorRegistration() {
     return unsubscribe;
   }, []);
 
+  // --- HELPER FOR DIETARY OPTIONS ---
+  const toggleDietaryOption = (option: string) => {
+    if (dietaryDetails.includes(option)) {
+      setDietaryDetails(dietaryDetails.filter(o => o !== option));
+    } else {
+      setDietaryDetails([...dietaryDetails, option]);
+    }
+  };
+
   // --- IMAGE LOGIC ---
-  const pickImage = async (type: 'banner' | 'menu' | 'aadhaar', index?: number) => {
+  const pickImage = async (type: 'banner' | 'stall' | 'menu' | 'aadhaar' | 'selfie', index?: number) => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
       Alert.alert("Permission Required", "Access to photos is needed.");
@@ -199,16 +271,20 @@ export default function VendorRegistration() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], 
       allowsEditing: true,
-      aspect: type === 'banner' ? [16, 9] : type === 'aadhaar' ? [4, 3] : [1, 1],
+      aspect: (type === 'banner' || type === 'aadhaar') ? [16, 9] : [1, 1], 
       quality: 0.5,
     });
 
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       if (type === 'banner') {
-        setBannerImage(uri);
+        setShopBannerUrl(uri);
+      } else if (type === 'stall') {
+        setStallPhoto(uri);
       } else if (type === 'aadhaar') {
-        setAadhaarImage(uri);
+        setAadhaarCardUrl(uri);
+      } else if (type === 'selfie') {
+        setVendorSelfie(uri);
       } else if (type === 'menu' && index !== undefined) {
         const updatedMenu = [...menuItems];
         updatedMenu[index].image = uri;
@@ -250,7 +326,6 @@ export default function VendorRegistration() {
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
-      // The useEffect listener will handle the redirect if login succeeds
     } catch (error: any) {
       setLoading(false);
       Alert.alert(t.loginFailed, error.message);
@@ -259,12 +334,12 @@ export default function VendorRegistration() {
 
   // --- REGISTER LOGIC ---
   const handleRegister = async () => {
-    // 1. Validation
     if (!email || !password) {
       Alert.alert(t.missingAuth, t.missingAuthMsg);
       return;
     }
-    if (!stallName || !description || !bannerImage || !aadhaarImage) {
+    // Validation based on new fields
+    if (!shopName || !ownerName || !phone || !address || !parentCity || !shopBannerUrl || !aadhaarCardUrl || !vendorAge || !vendorQualification || !vendorSelfie) {
       Alert.alert(t.missingFields, t.missingFieldsMsg);
       return;
     }
@@ -277,63 +352,92 @@ export default function VendorRegistration() {
     try {
       setLoading(true);
 
-      // 2. Create Auth User
+      // 1. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 3. Upload Assets
-      const cleanStallName = stallName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      // 2. Upload Assets
+      const cleanName = shopName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
       
-      // Upload Banner
-      let bannerUrl = bannerImage;
-      if (bannerImage && !bannerImage.startsWith('http')) {
-         bannerUrl = await uploadToCloudinary(bannerImage, `${cleanStallName}_banner_${Date.now()}`);
+      let bannerUrl = shopBannerUrl;
+      if (shopBannerUrl && !shopBannerUrl.startsWith('http')) {
+         bannerUrl = await uploadToCloudinary(shopBannerUrl, `${cleanName}_banner_${Date.now()}`);
       }
 
-      // Upload Aadhaar
-      let aadhaarUrl = aadhaarImage;
-      if (aadhaarImage && !aadhaarImage.startsWith('http')) {
-         aadhaarUrl = await uploadToCloudinary(aadhaarImage, `${cleanStallName}_aadhaar_${Date.now()}`);
+      let stallUrl = stallPhoto;
+      if (stallPhoto && !stallPhoto.startsWith('http')) {
+         stallUrl = await uploadToCloudinary(stallPhoto, `${cleanName}_stall_${Date.now()}`);
       }
 
-      // Upload Menu
-      const menuWithCloudUrls = await Promise.all(
-        validMenu.map(async (item) => {
+      let aadhaarUrl = aadhaarCardUrl;
+      if (aadhaarCardUrl && !aadhaarCardUrl.startsWith('http')) {
+         aadhaarUrl = await uploadToCloudinary(aadhaarCardUrl, `${cleanName}_aadhaar_${Date.now()}`);
+      }
+
+      let selfieUrl = vendorSelfie;
+      if (vendorSelfie && !vendorSelfie.startsWith('http')) {
+         selfieUrl = await uploadToCloudinary(vendorSelfie, `${cleanName}_selfie_${Date.now()}`);
+      }
+
+      // 3. Process Menu - Convert array to Object Map for Firestore
+      const menuMap: any = {};
+      await Promise.all(
+        validMenu.map(async (item, index) => {
           let imageUrl = item.image;
           if (imageUrl && !imageUrl.startsWith('http')) {
-            const uniqueId = `${cleanStallName}_menu_${Date.now()}_${Math.random()}`;
+            const uniqueId = `${cleanName}_menu_${Date.now()}_${index}`;
             imageUrl = await uploadToCloudinary(item.image, uniqueId);
           }
-          return { ...item, image: imageUrl || "https://via.placeholder.com/150" };
+          
+          const itemId = `item_${Date.now()}_${index}`;
+          menuMap[itemId] = {
+            name: item.name,
+            price: parseFloat(item.price),
+            description: item.description,
+            isVegetarian: item.isVegetarian,
+            imageUrl: imageUrl || "https://via.placeholder.com/150"
+          };
         })
       );
 
-      // 4. Save to Firestore (Including Auth Info)
+      // 4. Construct Vendor Data matching Firestore JSON + New Fields
       const vendorData = {
-        name: stallName,
-        description: description,
-        image: bannerUrl,
-        aadhaarUrl: aadhaarUrl, // New Field
-        rating: 5.0,
-        hygieneGrade: "A",
-        lat: coordinates.latitude,
-        lng: coordinates.longitude,
-        menu: menuWithCloudUrls,
-        createdAt: new Date().toISOString(),
-        fssaiUrl: null,
-        dailyVideoUrl: null,
-        // Link to Auth User
+        shopName: shopName,
+        ownerName: ownerName,
+        vendorAge: vendorAge, // New
+        vendorGender: vendorGender, // New
+        vendorQualification: vendorQualification, // New
+        vendorSelfieUrl: selfieUrl, // New
+        phone: phone,
         email: user.email,
-        ownerId: user.uid 
+        location: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude
+        },
+        address: address,
+        parentCity: parentCity,
+        rating: 5.0, 
+        hygieneRating: "A", 
+        priceRange: priceRange,
+        dietaryDetails: dietaryDetails, // Renamed from dietaryOptions
+        stallPhoto: stallUrl || "",
+        stallVideo: "", 
+        fssaiCertificateUrl: "", 
+        aadharCardUrl: aadhaarUrl,
+        shopBannerUrl: bannerUrl,
+        reviews: {},
+        menu: menuMap,
+        createdAt: Date.now()
       };
 
-      const docRef = await addDoc(collection(db, 'vendors'), vendorData);
+      // Use setDoc with phone number as ID instead of addDoc with auto-generated ID
+      await setDoc(doc(db, 'vendors', phone), vendorData);
       
-      // Navigate to Dashboard
+      // Navigate to Dashboard with phone as ID
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{ name: 'VendorDashboard', params: { vendorId: docRef.id } }],
+          routes: [{ name: 'VendorDashboard', params: { vendorId: phone } }],
         })
       );
       
@@ -437,7 +541,112 @@ export default function VendorRegistration() {
         {/* --- REGISTRATION FORM (Only if NOT Login Mode) --- */}
         {!isLoginMode && (
           <>
-            {/* 1. STALL INFO */}
+            {/* 1. PERSONAL INFO (New) */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>Personal Details</Text>
+              
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.ownerNameLabel}</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput
+                    style={styles.textInput}
+                    placeholder={t.ownerNamePlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={ownerName}
+                    onChangeText={setOwnerName}
+                    />
+                </View>
+              </View>
+
+              <View style={{flexDirection: 'row', gap: 12}}>
+                <View style={[styles.inputWrapper, {flex: 1}]}>
+                  <Text style={styles.inputLabel}>{t.vendorAgeLabel}</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="calendar-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                      <TextInput
+                      style={styles.textInput}
+                      placeholder={t.vendorAgePlaceholder}
+                      placeholderTextColor="#94a3b8"
+                      value={vendorAge}
+                      onChangeText={setVendorAge}
+                      keyboardType="numeric"
+                      />
+                  </View>
+                </View>
+                <View style={[styles.inputWrapper, {flex: 1}]}>
+                  <Text style={styles.inputLabel}>{t.vendorGenderLabel}</Text>
+                  <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
+                    {['Male', 'Female'].map((gender) => (
+                      <TouchableOpacity 
+                        key={gender}
+                        style={[styles.chip, vendorGender === gender && styles.chipActive, {flex: 1, justifyContent: 'center'}]}
+                        onPress={() => setVendorGender(gender)}
+                      >
+                        <Text style={[styles.chipText, vendorGender === gender && styles.chipTextActive, {textAlign: 'center'}]}>
+                          {gender === 'Male' ? 'M' : 'F'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.vendorQualificationLabel}</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="school-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput
+                    style={styles.textInput}
+                    placeholder={t.vendorQualificationPlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={vendorQualification}
+                    onChangeText={setVendorQualification}
+                    />
+                </View>
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.phoneLabel}</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="call-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput
+                    style={styles.textInput}
+                    placeholder={t.phonePlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={phone}
+                    onChangeText={setPhone}
+                    keyboardType="phone-pad"
+                    />
+                </View>
+              </View>
+
+              {/* Vendor Selfie */}
+              <View style={{ marginTop: 10 }}>
+                <Text style={styles.inputLabel}>{t.vendorSelfieLabel}</Text>
+                <TouchableOpacity onPress={() => pickImage('selfie')} activeOpacity={0.8}>
+                  {vendorSelfie ? (
+                    <View style={styles.imagePreviewContainer}>
+                        <Image source={{ uri: vendorSelfie }} style={styles.bannerPreview} />
+                        <View style={styles.editIconBadge}>
+                            <Ionicons name="create-outline" size={16} color="#fff" />
+                        </View>
+                    </View>
+                  ) : (
+                    <View style={styles.uploadPlaceholder}>
+                       <View style={styles.uploadIconCircle}>
+                         <Ionicons name="person-circle-outline" size={28} color="#10B981" />
+                       </View>
+                      <Text style={styles.uploadText}>{t.uploadSelfie}</Text>
+                       <Text style={styles.uploadSubtext}>Clear Face Photo</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+            </View>
+
+            {/* 2. STALL INFO */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeader}>{t.stallDetails}</Text>
               
@@ -449,8 +658,8 @@ export default function VendorRegistration() {
                     style={styles.textInput}
                     placeholder={t.stallNamePlaceholder}
                     placeholderTextColor="#94a3b8"
-                    value={stallName}
-                    onChangeText={setStallName}
+                    value={shopName}
+                    onChangeText={setShopName}
                     />
                 </View>
               </View>
@@ -472,9 +681,9 @@ export default function VendorRegistration() {
 
               <Text style={styles.inputLabel}>{t.coverImageLabel}</Text>
               <TouchableOpacity onPress={() => pickImage('banner')} activeOpacity={0.8}>
-                {bannerImage ? (
+                {shopBannerUrl ? (
                   <View style={styles.imagePreviewContainer}>
-                    <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
+                    <Image source={{ uri: shopBannerUrl }} style={styles.bannerPreview} />
                     <View style={styles.editIconBadge}>
                         <Ionicons name="camera" size={16} color="#fff" />
                     </View>
@@ -490,13 +699,35 @@ export default function VendorRegistration() {
                 )}
               </TouchableOpacity>
 
-              {/* NEW AADHAAR UPLOAD */}
+              <View style={{ marginTop: 20 }}>
+                <Text style={styles.inputLabel}>{t.stallPhotoLabel}</Text>
+                <TouchableOpacity onPress={() => pickImage('stall')} activeOpacity={0.8}>
+                  {stallPhoto ? (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image source={{ uri: stallPhoto }} style={styles.bannerPreview} />
+                      <View style={styles.editIconBadge}>
+                          <Ionicons name="camera" size={16} color="#fff" />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.uploadPlaceholder}>
+                      <View style={styles.uploadIconCircle}>
+                          <Ionicons name="camera-outline" size={28} color="#10B981" />
+                      </View>
+                      <Text style={styles.uploadText}>{t.uploadStallPhoto}</Text>
+                      <Text style={styles.uploadSubtext}>{t.uploadSubtext}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* AADHAAR UPLOAD */}
               <View style={{ marginTop: 20 }}>
                 <Text style={styles.inputLabel}>{t.aadhaarLabel}</Text>
                 <TouchableOpacity onPress={() => pickImage('aadhaar')} activeOpacity={0.8}>
-                  {aadhaarImage ? (
+                  {aadhaarCardUrl ? (
                     <View style={styles.imagePreviewContainer}>
-                        <Image source={{ uri: aadhaarImage }} style={styles.bannerPreview} />
+                        <Image source={{ uri: aadhaarCardUrl }} style={styles.bannerPreview} />
                         <View style={styles.editIconBadge}>
                             <Ionicons name="create-outline" size={16} color="#fff" />
                         </View>
@@ -515,9 +746,38 @@ export default function VendorRegistration() {
 
             </View>
 
-            {/* 2. LOCATION */}
+            {/* 3. LOCATION */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeader}>{t.location}</Text>
+              
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.addressLabel}</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="location-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput
+                    style={styles.textInput}
+                    placeholder={t.addressPlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={address}
+                    onChangeText={setAddress}
+                    />
+                </View>
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.cityLabel}</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="business-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput
+                    style={styles.textInput}
+                    placeholder={t.cityPlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={parentCity}
+                    onChangeText={setCity}
+                    />
+                </View>
+              </View>
+
               <View style={styles.mapFrame}>
                 <MapView
                   style={styles.map}
@@ -538,11 +798,46 @@ export default function VendorRegistration() {
               <Text style={styles.helperText}>{t.dragMarker}</Text>
             </View>
 
-            {/* 3. MENU */}
+            {/* OPTIONS: Price & Diet */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>Store Details</Text>
+              
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.priceRangeLabel}</Text>
+                <View style={{flexDirection: 'row', gap: 10}}>
+                  {['₹', '₹₹', '₹₹₹'].map((price) => (
+                    <TouchableOpacity 
+                      key={price}
+                      style={[styles.chip, priceRange === price && styles.chipActive]}
+                      onPress={() => setPriceRange(price)}
+                    >
+                      <Text style={[styles.chipText, priceRange === price && styles.chipTextActive]}>{price}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t.dietaryLabel}</Text>
+                <View style={{flexDirection: 'row', gap: 10, flexWrap: 'wrap'}}>
+                  {['vegetarian', 'non-vegetarian', 'vegan', 'glutenfree'].map((opt) => (
+                    <TouchableOpacity 
+                      key={opt}
+                      style={[styles.chip, dietaryDetails.includes(opt) && styles.chipActive]}
+                      onPress={() => toggleDietaryOption(opt)}
+                    >
+                      <Text style={[styles.chipText, dietaryDetails.includes(opt) && styles.chipTextActive]}>{opt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* 4. MENU */}
             <View style={styles.sectionContainer}>
               <View style={styles.rowBetween}>
                 <Text style={styles.sectionHeader}>{t.menu}</Text>
-                <TouchableOpacity onPress={() => setMenuItems([...menuItems, { name: '', price: '', image: '' }])}>
+                <TouchableOpacity onPress={() => setMenuItems([...menuItems, { name: '', price: '', description: '', isVegetarian: true, image: '' }])}>
                   <View style={styles.addMenuBtn}>
                       <Ionicons name="add" size={16} color="#fff" />
                       <Text style={styles.addMenuText}>{t.addItem}</Text>
@@ -572,16 +867,38 @@ export default function VendorRegistration() {
                         }}
                         />
                     </View>
+                    <View style={{flexDirection:'row', gap: 10}}>
+                      <View style={[styles.inputContainerSmall, {flex: 1}]}>
+                          <Text style={styles.currencyPrefix}>₹</Text>
+                          <TextInput
+                          placeholder={t.price}
+                          placeholderTextColor="#94a3b8"
+                          keyboardType="numeric"
+                          style={styles.menuInput}
+                          value={item.price}
+                          onChangeText={(text) => {
+                              const n = [...menuItems]; n[index].price = text; setMenuItems(n);
+                          }}
+                          />
+                      </View>
+                      <TouchableOpacity 
+                        style={[styles.vegToggle, item.isVegetarian ? {backgroundColor:'#dcfce7', borderColor:'#22c55e'} : {backgroundColor:'#fee2e2', borderColor:'#ef4444'}]}
+                        onPress={() => {
+                           const n = [...menuItems]; n[index].isVegetarian = !n[index].isVegetarian; setMenuItems(n);
+                        }}
+                      >
+                        <View style={[styles.vegDot, {backgroundColor: item.isVegetarian ? '#22c55e' : '#ef4444'}]} />
+                        <Text style={{fontSize: 10, color: '#334155', fontWeight: 'bold'}}>{t.veg}</Text>
+                      </TouchableOpacity>
+                    </View>
                     <View style={styles.inputContainerSmall}>
-                         <Text style={styles.currencyPrefix}>₹</Text>
                         <TextInput
-                        placeholder={t.price}
+                        placeholder={t.itemDesc}
                         placeholderTextColor="#94a3b8"
-                        keyboardType="numeric"
                         style={styles.menuInput}
-                        value={item.price}
+                        value={item.description}
                         onChangeText={(text) => {
-                            const n = [...menuItems]; n[index].price = text; setMenuItems(n);
+                            const n = [...menuItems]; n[index].description = text; setMenuItems(n);
                         }}
                         />
                     </View>
@@ -692,6 +1009,15 @@ const styles = StyleSheet.create({
   textAreaContainer: { alignItems: 'flex-start', paddingVertical: 8 },
   textArea: { height: 100, textAlignVertical: 'top' },
 
+  // Chips
+  chip: {
+    paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20,
+    backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0'
+  },
+  chipActive: { backgroundColor: '#10B981', borderColor: '#059669' },
+  chipText: { color: '#64748b', fontWeight: '600', fontSize: 12 },
+  chipTextActive: { color: '#ffffff' },
+
   // Upload Styles
   uploadPlaceholder: {
     height: 180,
@@ -796,6 +1122,11 @@ const styles = StyleSheet.create({
     flex: 1, color: '#1e293b', paddingVertical: 8, fontSize: 14, fontWeight: '500'
   },
   removeMenuBtn: { padding: 8, backgroundColor: '#fef2f2', borderRadius: 8 },
+  vegToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, borderRadius: 8, borderWidth: 1
+  },
+  vegDot: { width: 8, height: 8, borderRadius: 4 },
 
   // Submit
   submitBtn: {
