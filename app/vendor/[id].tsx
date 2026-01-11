@@ -1,251 +1,298 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'; // Added Firebase imports
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import ReviewInput from '../../src/components/ReviewInput'; // We will create this component
-import { db } from '../../src/services/firebaseConfig';
+import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useState, useEffect, useCallback } from "react";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { Colors } from "@/constants/theme";
+import { VendorData, vendorService } from "@/src/services/vendorService";
+import { RatingDisplay, Badge, Chip, PremiumCard } from "@/src/components/PremiumUI";
+import { ReviewInput } from "@/src/components/ReviewInput";
+import { useUser } from "@/hooks/use-user";
 
-// === MOCK DATA FOR UI (Keep as Fallback) ===
-const DEFAULT_MENU_ITEM_IMAGE = "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?q=80&w=200";
-
-// Interface to match Firestore data structure
-interface VendorData {
-  name: string;
-  image: string;
-  hygieneGrade: string;
-  rating: number;
-  description: string;
-  lat: number;
-  lng: number;
-  menu: { name: string; price: string; image: string }[];
-  reviews?: any[]; // Array of review objects
-}
+const AnimatedView = Animated.createAnimatedComponent(View);
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export default function VendorDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const vendorId = params.id as string;
-  
-  const [vendorData, setVendorData] = useState<VendorData | null>(null);
+  const { id } = useLocalSearchParams();
+  const { user } = useUser();
+  const [vendor, setVendor] = useState<VendorData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
-  // 1. Fetch Full Vendor Details (Description, Menu, Coordinates)
-  useEffect(() => {
-    if (!vendorId) return;
-
-    const docRef = doc(db, 'vendors', vendorId);
-    
-    // Fetch the main document
-    getDoc(docRef).then(docSnap => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as VendorData;
-
-        // Ensure lat/lng are numbers for MapView
-        setVendorData({
-            ...data,
-            lat: parseFloat(data.lat as any) || 0,
-            lng: parseFloat(data.lng as any) || 0,
-            rating: data.rating || 4.5
-        });
-      } else {
-        console.warn("No such vendor document!");
+  const loadVendor = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await vendorService.getVendorById(id as string);
+      if (data) {
+        setVendor(data);
       }
+    } catch (error) {
+      console.error("Error loading vendor:", error);
+    } finally {
       setLoading(false);
-    });
+    }
+  }, [id]);
 
-    // 2. Fetch Real-time Reviews from Subcollection
-    const reviewsRef = collection(db, 'vendors', vendorId, 'reviews');
-    const unsubscribe = onSnapshot(reviewsRef, (snapshot) => {
-        const liveReviews = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        setReviews(liveReviews);
-    });
+  useEffect(() => {
+    loadVendor();
+  }, [loadVendor]);
 
-    return () => unsubscribe();
-  }, [vendorId]);
+  const handleReviewSuccess = () => {
+    loadVendor();
+  };
 
-
-  if (loading || !vendorData) {
+  if (loading) {
     return (
-      <View className="flex-1 bg-dark-bg items-center justify-center">
-        <ActivityIndicator size="large" color="#00C896" />
-        <Text className="text-gray-400 mt-4">Loading stall details...</Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark.bg }} edges={["top"]} >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", }} >
+          <ActivityIndicator size="large" color={Colors.dark.accentGold} />
+          <Text style={{ marginTop: 12, color: Colors.dark.textSecondary, fontSize: 14, }} >
+            Loading stall details...
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  // --- REVIEW SUBMISSION HANDLER ---
-  const handleReviewSubmit = async (reviewText: string, rating: number) => {
-      if (!reviewText || rating === 0) return;
-
-      try {
-          const reviewsRef = collection(db, 'vendors', vendorId, 'reviews');
-          await addDoc(reviewsRef, {
-              reviewerId: 'anonymous_user_' + Math.random().toString(36).substring(7), // Anonymous ID for now
-              rating: rating,
-              text: reviewText,
-              likes: 0,
-              dislikes: 0,
-              timestamp: serverTimestamp(),
-          });
-          alert("Review submitted successfully!");
-      } catch (e) {
-          console.error("Error adding document: ", e);
-          alert("Failed to submit review.");
-      }
-  };
-
+  if (!vendor) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark.bg }} edges={["top"]} >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Ionicons name="alert-circle-outline" size={64} color={Colors.dark.textTertiary} />
+          <Text style={{ marginTop: 12, color: Colors.dark.textSecondary, fontSize: 14, }} >
+            Stall not found
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View className="flex-1 bg-dark-bg">
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark.bg }} edges={["top"]} >
+      {/* Header with back button */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, }} >
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.dark.cardAlt, justifyContent: "center", alignItems: "center", }} >
+          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.text, }} >
+          Stall Details
+        </Text>
+        <TouchableOpacity style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.dark.cardAlt, justifyContent: "center", alignItems: "center", }} >
+          <Ionicons name="heart-outline" size={22} color={Colors.dark.accentPrimary} />
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        
-        {/* === 1. HERO IMAGE === */}
-        {/* ... (Keep Hero Image Section) ... */}
-        <View className="relative h-64 w-full">
-          <Image 
-            source={{ uri: vendorData.image as string }} 
-            className="w-full h-full"
-            resizeMode="cover"
-          />
-          {/* Header Buttons Overlay */}
-          <View className="absolute top-12 left-0 right-0 flex-row justify-between px-4 z-10">
-            <TouchableOpacity 
-              onPress={() => router.back()} 
-              className="w-10 h-10 bg-black/50 rounded-full items-center justify-center backdrop-blur-md"
-            >
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
-            </TouchableOpacity>
-            <TouchableOpacity className="w-10 h-10 bg-black/50 rounded-full items-center justify-center backdrop-blur-md">
-              <Ionicons name="share-outline" size={24} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-          <View className="absolute inset-0 bg-gradient-to-t from-dark-bg via-transparent to-transparent opacity-80" />
-        </View>
-
-        {/* === 2. VENDOR INFO === */}
-        <View className="px-5 pt-4">
-          <Text className="text-white text-3xl font-bold mb-1">{vendorData.name}</Text>
-          
-          <View className="flex-row items-center mb-4">
-            <Text className="text-primary font-semibold mr-2">Clean Certified</Text>
-            <Ionicons name="star" size={14} color="#00C896" />
-            <Text className="text-gray-400 ml-1">{vendorData.rating?.toFixed(1) || 'N/A'}</Text>
-          </View>
-
-          {/* Description now fetched from Firestore */}
-          <Text className="text-gray-400 leading-6 mb-8">
-            {vendorData.description || "No detailed description provided by vendor."}
-          </Text>
-
-          <View className="h-[1px] bg-gray-800 w-full mb-8" />
-
-          {/* === 3. MENU SECTION (Fetched from Firestore) === */}
-          <Text className="text-white text-xl font-bold mb-4">Menu</Text>
-          <View className="mb-8">
-            {(vendorData.menu as any[] || []).map((item, index) => (
-              <View key={index} className="flex-row items-start mb-6">
-                {/* Text Side */}
-                <View className="flex-1 pr-4">
-                  <Text className="text-primary font-bold text-lg mb-1">{item.price}</Text>
-                  <Text className="text-white font-bold text-lg mb-1">{item.name}</Text>
-                </View>
-                {/* Image Side */}
-                <Image 
-                  source={{ uri: item.image || DEFAULT_MENU_ITEM_IMAGE }} 
-                  className="w-28 h-24 rounded-xl bg-gray-800"
-                  resizeMode="cover"
-                />
-              </View>
-            ))}
-            {vendorData.menu.length === 0 && (
-                <Text className="text-gray-500 text-center">Menu coming soon!</Text>
-            )}
-          </View>
-
-          <View className="h-[1px] bg-gray-800 w-full mb-8" />
-
-          {/* === 4. REVIEWS SECTION (Fetched from Firestore Subcollection) === */}
-          <Text className="text-white text-xl font-bold mb-6">Reviews ({reviews.length})</Text>
-          
-          {/* Review Input Component */}
-          <ReviewInput onSubmit={handleReviewSubmit} />
-          
-          <View className="h-[1px] bg-gray-800 w-full my-6" />
-
-          {(reviews as any[]).map((review) => (
-            <View key={review.id} className="mb-8">
-              {/* Review Header (Using generic anonymous icon) */}
-              <View className="flex-row items-center mb-2">
-                <Ionicons name="person-circle" size={40} color="#A1A1AA" />
-                <View className="ml-3">
-                  <Text className="text-white font-bold">Anonymous User</Text>
-                  <Text className="text-gray-500 text-xs">{new Date(review.timestamp?.toDate()).toLocaleDateString() || 'Just now'}</Text>
-                </View>
-              </View>
-              
-              {/* Stars */}
-              <View className="flex-row mb-2">
-                {[...Array(5)].map((_, i) => (
-                  <Ionicons 
-                    key={i} 
-                    name="star" 
-                    size={14} 
-                    color={i < review.rating ? "#00C896" : "#333"} 
-                  />
+      <AnimatedScrollView showsVerticalScrollIndicator={false} entering={FadeInUp} >
+        {/* Hero Image */}
+        <AnimatedView entering={FadeInUp}>
+          <View style={{ position: "relative", height: 280 }}>
+            <Image source={{ uri: vendor.stallPhoto }} style={{ width: "100%", height: "100%", }} />
+            {/* Gradient overlay */}
+            <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 120, backgroundColor: "rgba(15,12,10,0.9)", }} />
+            {/* Rank badge */}
+            <View style={{ position: "absolute", top: 16, left: 16, backgroundColor: Colors.dark.accentPrimary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 6, }} >
+              <Ionicons name="trophy" size={14} color={Colors.dark.bg} />
+              <Text style={{ fontWeight: "700", color: Colors.dark.bg, fontSize: 12, }} >
+                Rank #{vendor.shopRank}
+              </Text>
+            </View>
+            {/* Badges */}
+            {vendor.badges.length > 0 && (
+              <View style={{ position: "absolute", top: 16, right: 16, flexDirection: "row", gap: 6, }} >
+                {vendor.badges.slice(0, 2).map((badge) => (
+                  <View key={badge.id} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `rgba(78, 203, 155, 0.9)`, justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: Colors.dark.accentPrimary, }} >
+                    <Text style={{ fontSize: 20 }}>{badge.icon}</Text>
+                  </View>
                 ))}
               </View>
+            )}
+          </View>
+        </AnimatedView>
 
-              {/* Text */}
-              <Text className="text-gray-300 leading-5 mb-3">{review.text}</Text>
+        {/* Vendor Info */}
+        <AnimatedView entering={FadeInUp.delay(100)} style={{ paddingHorizontal: 16, paddingVertical: 20, }} >
+          {/* Name and vendor */}
+          <Text style={{ fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: 8, }} >
+            {vendor.shopName}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.dark.cardAlt, justifyContent: "center", alignItems: "center", }} >
+              <Ionicons name="person-circle" size={20} color={Colors.dark.accentGold} />
+            </View>
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.dark.text, }} >
+                {vendor.vendorName}
+              </Text>
+              <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, }} >
+                {vendor.vendorAge} years old • {vendor.vendorGender}
+              </Text>
+            </View>
+          </View>
 
-              {/* Likes (Static for now) */}
-              <View className="flex-row items-center space-x-4">
-                <View className="flex-row items-center mr-4">
-                   <Ionicons name="thumbs-up-outline" size={16} color="#A1A1AA" />
-                   <Text className="text-gray-400 text-xs ml-1">{review.likes || 0}</Text>
-                </View>
-                <View className="flex-row items-center">
-                   <Ionicons name="thumbs-down-outline" size={16} color="#A1A1AA" />
-                   <Text className="text-gray-400 text-xs ml-1">{review.dislikes || 0}</Text>
-                </View>
+          {/* Location */}
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 16, }} >
+            <Ionicons name="location" size={18} color={Colors.dark.accentGold} style={{ marginTop: 2 }} />
+            <Text style={{ fontSize: 13, color: Colors.dark.textSecondary, flex: 1, lineHeight: 20, }} >
+              {vendor.shopAddress}
+            </Text>
+          </View>
+
+          {/* Ratings */}
+          <View style={{ flexDirection: "row", gap: 24, marginTop: 20, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: `rgba(212, 175, 55, 0.15)`, }} >
+            <View>
+              <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, marginBottom: 8, fontWeight: "600", }} >
+                USER RATING
+              </Text>
+              <RatingDisplay rating={vendor.averageRating || vendor.userReviewScore || 0} />
+            </View>
+            <View style={{ width: 1, backgroundColor: `rgba(212, 175, 55, 0.2)` }} />
+            <View>
+              <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, marginBottom: 8, fontWeight: "600", }} >
+                AI QUALITY SCORE
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, }} >
+                <Ionicons name="sparkles" size={16} color={Colors.dark.accentGold} />
+                <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.accentGold, }} >
+                  {vendor.aiScore.toFixed(1)}
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.dark.textSecondary, }} >
+                  / 10
+                </Text>
               </View>
             </View>
-          ))}
-          {reviews.length === 0 && (
-              <Text className="text-gray-500 text-center mb-8">No reviews yet. Be the first!</Text>
+          </View>
+
+          {/* Food Categories */}
+          <View style={{ marginTop: 20 }}>
+            <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, marginBottom: 10, }} >
+              FOOD CATEGORIES
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {vendor.dietaryDetails.map((cat: string, idx: number) => (
+                <Chip key={idx} label={cat} />
+              ))}
+            </View>
+          </View>
+        </AnimatedView>
+
+        {/* Vendor Badges Section */}
+        {vendor.badges.length > 0 && (
+          <AnimatedView entering={FadeInUp.delay(200)} style={{ paddingHorizontal: 16, marginVertical: 16, }} >
+            <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, marginBottom: 12, }} >
+              ACHIEVEMENTS
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, }} >
+              {vendor.badges.map((badge) => (
+                <Badge key={badge.id} icon={badge.icon} label={badge.name} description={badge.description} />
+              ))}
+            </View>
+          </AnimatedView>
+        )}
+
+        {/* Certifications */}
+        <AnimatedView entering={FadeInUp.delay(300)} style={{ paddingHorizontal: 16, marginVertical: 16, }} >
+          <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, marginBottom: 12, }} >
+            CERTIFICATIONS
+          </Text>
+          <View style={{ gap: 10 }}>
+            <PremiumCard>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", }} >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, }} >
+                  <Ionicons name="document-text" size={20} color={Colors.dark.accentPrimary} />
+                  <View>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.dark.text, }} >
+                      FSSAI Certificate
+                    </Text>
+                    <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, marginTop: 2, }} >
+                      ✓ Verified & Valid
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.dark.accentGold} />
+              </View>
+            </PremiumCard>
+            <PremiumCard>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", }} >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, }} >
+                  <Ionicons name="id-card" size={20} color={Colors.dark.accentPrimary} />
+                  <View>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.dark.text, }} >
+                      Aadhar Card
+                    </Text>
+                    <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, marginTop: 2, }} >
+                      ✓ Verified & Valid
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.dark.accentGold} />
+              </View>
+            </PremiumCard>
+          </View>
+        </AnimatedView>
+
+        {/* Reviews Section */}
+        <AnimatedView entering={FadeInUp.delay(400)} style={{ paddingHorizontal: 16, marginVertical: 16, }} >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, }} >
+            <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, }} >
+              REVIEWS ({(vendor.userComments?.length || 0)})
+            </Text>
+            <TouchableOpacity onPress={() => setShowReviewModal(true)}>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.accentPrimary, }} >
+                Add Review
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Review Modal */}
+          {vendor && user && (
+            <ReviewInput
+              vendorId={vendor.id}
+              vendorName={vendor.shopName}
+              userId={user.phone || user.id}
+              visible={showReviewModal}
+              onClose={() => setShowReviewModal(false)}
+              onSubmitSuccess={handleReviewSuccess}
+            />
           )}
 
-          {/* === 5. LOCATION MAP (Coordinates Fixed) === */}
-          <Text className="text-white text-xl font-bold mb-4">Location</Text>
-          <View className="h-48 w-full rounded-2xl overflow-hidden border border-gray-800 mb-20 bg-gray-800">
-            <MapView
-              style={{ width: '100%', height: '100%' }}
-              // Use fetched coordinates from Firestore
-              initialRegion={{
-                latitude: vendorData.lat, 
-                longitude: vendorData.lng,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
-              }}
-              liteMode={true} 
-            >
-              <Marker 
-                coordinate={{ latitude: vendorData.lat, longitude: vendorData.lng }}
-                pinColor="#00C896"
-              />
-            </MapView>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
+          {/* Reviews List */}
+          {(vendor.userComments?.length || 0) > 0 ? (
+            vendor.userComments?.map((review) => (
+              <PremiumCard key={review.id} style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, }} >
+                  <View>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.dark.text, }} >
+                      {review.userName}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, marginTop: 2, }} >
+                      {new Date(review.timestamp).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, }} >
+                    <Text style={{ fontSize: 12 }}>⭐</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.accentPrimary, }} >
+                      {review.rating}.0
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 12, color: Colors.dark.textSecondary, lineHeight: 18, }} >
+                  {review.comment}
+                </Text>
+              </PremiumCard>
+            ))
+          ) : (
+            <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <Text style={{ fontSize: 12, color: Colors.dark.textSecondary, }} >
+                No reviews yet. Be the first to review!
+              </Text>
+            </View>
+          )}
+        </AnimatedView>
+
+        <View style={{ height: 40 }} />
+      </AnimatedScrollView>
+    </SafeAreaView>
   );
 }

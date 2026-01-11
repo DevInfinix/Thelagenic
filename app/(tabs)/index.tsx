@@ -1,146 +1,254 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // Import Router
-import { collection, onSnapshot } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import VendorCard from '../../src/components/VendorCard';
-import { db } from '../../src/services/firebaseConfig';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useState, useEffect } from "react";
+import Animated, { FadeIn, SlideInLeft } from "react-native-reanimated";
+import { Colors } from "@/constants/theme";
+import { useUser } from "@/hooks/use-user";
+import { VendorCard } from "@/src/components/VendorCardNew";
+import { VendorData, vendorService } from "@/src/services/vendorService";
+import { Chip } from "@/src/components/PremiumUI";
 
-// 1. Define Default Data (The "Safety Net")
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070";
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 export default function HomeScreen() {
-  const [activeFilter, setActiveFilter] = useState('Nearby');
-  const [vendors, setVendors] = useState<any[]>([]);
+  const router = useRouter();
+  const { user } = useUser();
+  const [vendors, setVendors] = useState<VendorData[]>([]);
+  const [filteredVendors, setFilteredVendors] = useState<VendorData[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const router = useRouter(); // Initialize Navigation
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"rank" | "rating" | "score">("rank");
 
-  const filters = ['Nearby', 'Top Rated', 'Certified Safe', 'Veg Only'];
+  const categories = [
+    "All",
+    "Street Food",
+    "Momos",
+    "Chaat",
+    "Pav Bhaji",
+    "Chinese",
+    "Samosa",
+  ];
 
-  // 2. Fetch Data (Realtime Listener)
+  const loadVendors = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await vendorService.getAllVendors();
+      setVendors(data);
+      filterVendors(data, searchQuery, selectedCategory, sortBy);
+    } catch (error) {
+      console.error("Error loading vendors:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, selectedCategory, sortBy]);
+
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'vendors'), (snapshot) => {
-      const liveData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setVendors(liveData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching vendors:", error);
-      setLoading(false);
-    });
+    loadVendors();
+  }, [loadVendors]);
 
-    return () => unsubscribe();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadVendors();
+    }, [loadVendors])
+  );
+
+  const filterVendors = (
+    data: VendorData[],
+    query: string,
+    category: string | null,
+    sort: "rank" | "rating" | "score"
+  ) => {
+    let filtered = data;
+
+    // Search filter
+    if (query.trim()) {
+      filtered = filtered.filter(
+        (v) =>
+          v.shopName.toLowerCase().includes(query.toLowerCase()) ||
+          v.vendorName.toLowerCase().includes(query.toLowerCase()) ||
+          v.dietaryDetails.some((cat) => cat.toLowerCase().includes(query.toLowerCase()) )
+      );
+    }
+
+    // Category filter
+    if (category && category !== "All") {
+      filtered = filtered.filter((v) => v.dietaryDetails.some((cat) => cat.toLowerCase().includes(category.toLowerCase()) )
+      );
+    }
+
+    // Sorting
+    if (sort === "rating") {
+      filtered.sort((a, b) => {
+        const ratingA = a.averageRating || a.userReviewScore || 0;
+        const ratingB = b.averageRating || b.userReviewScore || 0;
+        return ratingB - ratingA;
+      });
+    } else if (sort === "score") {
+      filtered.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
+    } else {
+      filtered.sort((a, b) => (a.shopRank || 0) - (b.shopRank || 0));
+    }
+
+    setFilteredVendors(filtered);
+  };
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    filterVendors(vendors, text, selectedCategory, sortBy);
+  };
+
+  const handleCategorySelect = (cat: string) => {
+    const newCategory = cat === "All" ? null : cat;
+    setSelectedCategory(cat === "All" ? null : newCategory);
+    filterVendors(vendors, searchQuery, newCategory, sortBy);
+  };
+
+  const handleSort = (sort: "rank" | "rating" | "score") => {
+    setSortBy(sort);
+    filterVendors(vendors, searchQuery, selectedCategory, sort);
+  };
+
+  const handleVendorPress = (vendorId: string) => {
+    router.push(`/vendor/${vendorId}`);
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-dark-bg">
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
-      
-      <View className="flex-1 p-4">
-        {/* === HEADER === */}
-        <View className="flex-row justify-between items-center mb-6 mt-2 pt-6">
-          <View>
-            <Text className="text-gray-400 text-xs uppercase tracking-widest">Current Location</Text>
-            <View className="flex-row items-center mt-1">
-              <Ionicons name="location" size={20} color="#00C896" />
-              <Text className="text-white text-xl font-bold ml-1">Mumbai, India</Text>
-              <Ionicons name="chevron-down" size={16} color="#00C896" className="ml-1" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark.bg }} edges={["top"]} >
+      <View style={{ flex: 1 }}>
+        {/* Header */}
+        <AnimatedView entering={FadeIn} style={{ paddingHorizontal: 16, paddingVertical: 16 }} >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20, }} >
+            <View>
+              <Text style={{ fontSize: 28, fontWeight: "700", color: Colors.dark.text, }} >
+                Welcome back!
+              </Text>
+              <Text style={{ fontSize: 14, color: Colors.dark.textSecondary, marginTop: 4, }} >
+                {user?.name || "Guest"}
+              </Text>
             </View>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/profile")} activeOpacity={0.7} >
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: Colors.dark.cardAlt, borderWidth: 1.5, borderColor: Colors.dark.accentPrimary, justifyContent: "center", alignItems: "center", }} >
+                <Ionicons name="person-outline" size={24} color={Colors.dark.accentPrimary} />
+              </View>
+            </TouchableOpacity>
           </View>
-          <View className="w-10 h-10 bg-gray-800 rounded-full items-center justify-center border border-gray-700">
-             <Ionicons name="person" size={20} color="#FFF" />
+
+          {/* Search Bar */}
+          <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.cardAlt, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: Colors.dark.textTertiary, marginBottom: 16, }} >
+            <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
+            <TextInput
+              placeholder="Search stalls, food..."
+              placeholderTextColor={Colors.dark.textTertiary}
+              value={searchQuery}
+              onChangeText={handleSearch}
+              style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 12, color: Colors.dark.text, fontSize: 14, }}
+            />
+            {searchQuery && (
+              <TouchableOpacity onPress={() => handleSearch("")}>
+                <Ionicons name="close-circle" size={20} color={Colors.dark.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
-        </View>
 
-        {/* === SEARCH BAR === */}
-        <View className="flex-row items-center bg-dark-card rounded-xl px-4 py-3 mb-6 border border-gray-800">
-          <Ionicons name="search" size={20} color="#A1A1AA" />
-          <TextInput 
-            placeholder="Search hygienic street food..." 
-            placeholderTextColor="#666"
-            className="flex-1 ml-3 text-white font-medium"
-          />
-        </View>
-
-        {/* === FILTER CHIPS === */}
-        <View className="h-10 mb-6">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {filters.map((filter) => (
-              <TouchableOpacity 
-                key={filter} 
-                onPress={() => setActiveFilter(filter)}
-                className={`px-5 py-2 rounded-full mr-3 border ${
-                  activeFilter === filter 
-                    ? 'bg-primary border-primary' 
-                    : 'bg-transparent border-gray-700'
-                }`}
+          {/* Sort Options */}
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 16, }} >
+            {[
+              { label: "Top Ranked", value: "rank" as const },
+              { label: "Best Rated", value: "rating" as const },
+              { label: "Best Score", value: "score" as const },
+            ].map((sort) => (
+              <TouchableOpacity
+                key={sort.value}
+                onPress={() => handleSort(sort.value)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  borderWidth: 1.5,
+                  borderColor: sortBy === sort.value ? Colors.dark.accentPrimary : Colors.dark.textTertiary,
+                  backgroundColor: sortBy === sort.value ? `rgba(47, 209, 127, 0.1)` : "transparent",
+                }}
               >
-                <Text className={`font-semibold ${
-                  activeFilter === filter ? 'text-black' : 'text-gray-400'
-                }`}>
-                  {filter}
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: sortBy === sort.value ? Colors.dark.accentPrimary : Colors.dark.textSecondary,
+                  }}
+                >
+                  {sort.label}
                 </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
-        </View>
-
-        {/* === VENDOR LIST === */}
-        <Text className="text-white text-lg font-bold mb-4">Recommended Vendors</Text>
-        
-        {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#00C896" />
-            <Text className="text-gray-500 mt-4">Finding hygienic spots...</Text>
           </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
-            {vendors.map((item) => {
-              // 3. MERGE LOGIC: Real Data overwrites Default Data
-              const finalVendor = {
-                id: item.id,
-                name: item.name || "Unknown Stall",
-                image: item.image || DEFAULT_IMAGE,
-                rating: item.rating || 4.0,
-                distance: item.distance || "1.2 km",
-                hygieneGrade: item.hygieneGrade || "B"
-              };
 
-              return (
-                <VendorCard 
-                  key={finalVendor.id} 
-                  vendor={finalVendor}
-                  // 4. NAVIGATION LOGIC ADDED HERE
-                  // ... inside the onPress function
-onPress={() => {
-  router.push({
-    // Add "as any" here to silence the error
-    pathname: "/vendor/[id]" as any, 
-    params: { 
-      id: finalVendor.id,
-      name: finalVendor.name,
-      image: finalVendor.image,
-      rating: finalVendor.rating,
-      hygieneGrade: finalVendor.hygieneGrade,
-      distance: finalVendor.distance
-    }
-  });
-}}
+          {/* Category Filter */}
+          <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, marginBottom: 8, }} >
+            FILTER BY CATEGORY
+          </Text>
+        </AnimatedView>
+
+        <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16} >
+          {/* Categories Horizontal Scroll */}
+          <AnimatedView entering={SlideInLeft.delay(100)}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ paddingHorizontal: 16, marginBottom: 16 }}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {categories.map((cat) => (
+                <Chip
+                  key={cat}
+                  label={cat}
+                  selected={
+                    (cat === "All" && selectedCategory === null) || selectedCategory === cat
+                  }
+                  onPress={() => handleCategorySelect(cat)}
                 />
-              );
-            })}
-            
-            {/* Empty State */}
-            {vendors.length === 0 && (
-              <Text className="text-gray-600 text-center mt-10">
-                No vendors found nearby.
-              </Text>
+              ))}
+            </ScrollView>
+          </AnimatedView>
+
+          {/* Results */}
+          <View style={{ paddingBottom: 24 }}>
+            {loading ? (
+              <View style={{ justifyContent: "center", alignItems: "center", paddingVertical: 60, }} >
+                <ActivityIndicator size="large" color={Colors.dark.accentPrimary} />
+                <Text style={{ marginTop: 12, color: Colors.dark.textSecondary, fontSize: 14, }} >
+                  Loading stalls...
+                </Text>
+              </View>
+            ) : filteredVendors.length > 0 ? (
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, paddingHorizontal: 16, marginBottom: 12, }} >
+                  {filteredVendors.length} STALLS FOUND
+                </Text>
+                {filteredVendors.map((vendor, idx) => (
+                  <VendorCard
+                    key={vendor.id}
+                    vendor={vendor}
+                    index={idx}
+                    onPress={() => handleVendorPress(vendor.id)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <View style={{ justifyContent: "center", alignItems: "center", paddingVertical: 60, }} >
+                <Ionicons name="search" size={64} color={Colors.dark.textTertiary} style={{ marginBottom: 12, opacity: 0.5 }} />
+                <Text style={{ fontSize: 16, fontWeight: "600", color: Colors.dark.textSecondary, textAlign: "center", }} >
+                  No stalls found
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.dark.textTertiary, marginTop: 8, textAlign: "center", paddingHorizontal: 24, }} >
+                  Try adjusting your search or filters
+                </Text>
+              </View>
             )}
-          </ScrollView>
-        )}
+          </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );

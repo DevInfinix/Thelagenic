@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 
 // Define what data a Vendor has
@@ -14,6 +14,8 @@ interface VendorProps {
 
 // Update: Added 'onPress' to the props here
 export default function VendorCard({ vendor, onPress }: { vendor: VendorProps, onPress?: () => void }) {
+  const [imageLoadError, setImageLoadError] = useState(false);
+
   return (
     <TouchableOpacity 
       activeOpacity={0.9} 
@@ -22,12 +24,21 @@ export default function VendorCard({ vendor, onPress }: { vendor: VendorProps, o
     >
       
       {/* 1. Image Section */}
-      <View className="h-40 w-full relative">
-        <Image 
-          source={{ uri: vendor.image }} 
-          className="w-full h-full"
-          resizeMode="cover"
-        />
+      <View className="h-40 w-full relative bg-gray-900">
+        {!imageLoadError ? (
+          <Image 
+            source={{ uri: vendor.image }} 
+            className="w-full h-full"
+            resizeMode="cover"
+            onError={() => setImageLoadError(true)}
+          />
+        ) : (
+          <View className="w-full h-full bg-gray-800 flex items-center justify-center">
+            <Ionicons name="image-outline" size={40} color="#666" />
+            <Text className="text-gray-500 text-xs mt-2">Image not available</Text>
+          </View>
+        )}
+        
         {/* Rating Badge */}
         <View className="absolute top-3 right-3 bg-black/60 px-2 py-1 rounded-lg flex-row items-center backdrop-blur-md">
           <Ionicons name="star" size={12} color="#00C896" />
